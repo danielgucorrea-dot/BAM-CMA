@@ -359,7 +359,7 @@ button{cursor:pointer;font-family:inherit}
       <button class="nav-btn active" id="ct-1" onclick="setCruceTab(1)" style="font-size:8px;flex:1;padding:8px 2px;min-width:70px">
         <span id="ct1-count" style="font-size:13px;font-weight:900;color:#2D6A2F">—</span><br>EN MAPA Y ORD
       </button>
-      <button class="nav-btn" id="ct-2" onclick="setCruceTab(2)" style="font-size:8px;flex:1;padding:8px 2px;min-width:70px">
+      <button class="nav-btn" id="ct-2" onclick="setCruceTab(2)" style="display:none;font-size:8px;flex:1;padding:8px 2px;min-width:70px">
         <span id="ct2-count" style="font-size:13px;font-weight:900;color:#C62828">—</span><br>SIN OPERATIVO
       </button>
       <button class="nav-btn" id="ct-3" onclick="setCruceTab(3)" style="font-size:8px;flex:1;padding:8px 2px;min-width:70px">
@@ -2017,7 +2017,7 @@ function normAddr(s) {
   // Abreviaturas → forma canónica
   s = s.replace(/\bav(enida)?\.?\s*/g,'av ')
        .replace(/\bavda\.?\s*/g,'av ')
-       .replace(/\b(pje|psj|pasaje)\.?\s*/g,'pje ')
+       .replace(/\b(pje|psj|psje|pasaje)\.?\s*/g,'pasaje ')
        .replace(/\bdr\.?\s*/g,'dr ');
 
   // Nombres de pila frecuentes en nombres de calles
@@ -2068,6 +2068,48 @@ function jaccard(a, b) {
   for (const t of ta) if (tb.has(t)) inter++;
   return inter / (ta.size + tb.size - inter);
 }
+
+// tokenMatch: typos en nombres de calles (NO aplica a números)
+function tokenMatch(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (/^\d+$/.test(a) || /^\d+$/.test(b)) return false;
+  if (a.length < 4 || b.length < 4) return a === b;
+  const maxDiff = a.length <= 6 ? 1 : a.length <= 9 ? 2 : 3;
+  if (Math.abs(a.length - b.length) > maxDiff) return false;
+  const m = a.length, n = b.length;
+  const dp = Array.from({length:m+1}, (_,i)=>Array.from({length:n+1},(_,j)=>i||j));
+  for (let i=1;i<=m;i++) for (let j=1;j<=n;j++)
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[m][n] <= maxDiff;
+}
+
+// addrMatch: para intersecciones exige que ambas calles coincidan
+// Para resto mantiene Jaccard 0.50 original (no rompe matches existentes)
+function addrMatch(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const aIsX = /\s+y\s+/i.test(a);
+  const bIsX = /\s+y\s+/i.test(b);
+
+  if (aIsX && bIsX) {
+    // Intersecciones: cada calle debe tener match por tokens
+    const ap = a.split(/\s+y\s+/i).map(s=>s.trim()).sort();
+    const bp = b.split(/\s+y\s+/i).map(s=>s.trim()).sort();
+    const partMatch = (sa, sb) => {
+      const ta = sa.split(' ').filter(t=>t.length>2);
+      const tb = sb.split(' ').filter(t=>t.length>2);
+      if (!ta.length || !tb.length) return !ta.length && !tb.length;
+      return ta.every(x=>tb.some(y=>tokenMatch(x,y))) &&
+             tb.every(x=>ta.some(y=>tokenMatch(x,y)));
+    };
+    return partMatch(ap[0], bp[0]) && partMatch(ap[1]||'', bp[1]||'');
+  }
+
+  // No intersecciones: Jaccard original 0.50 (mantiene matches previos)
+  return jaccard(a, b) >= 0.50;
+}
+function levenshteinClose(a, b) { return tokenMatch(a, b); }
 
 function tokenSortSim(a, b) {
   const sa = a.split(' ').filter(t=>t.length>1).sort().join(' ');
@@ -2251,11 +2293,9 @@ function runCrossRef() {
         if (i.tipo !== 'Basural' && i.tipo !== 'Volcadero') return;
         const n = normAddr(i.ubic);
         if (!n || n.length < 4) return;
-        // Clave: solo tokens longitud >2, ordenados
-        // Excluye "av", "al", "y", "e" etc. que crean variantes artificiales
         const key = n.split(' ').filter(t=>t.length>2).sort().join(' ');
         if (!key || key.length < 4) return;
-        if (!addrMap[key]) addrMap[key] = {raw: i.ubic, count: 0, tipo: i.tipo};
+        if (!addrMap[key]) addrMap[key] = {raw: i.ubic, norm: n, count: 0, tipo: i.tipo};
         addrMap[key].count++;
       });
     });
@@ -2269,10 +2309,11 @@ function runCrossRef() {
       const mpKey = mp.norm.split(' ').filter(t=>t.length>2).sort().join(' ');
       let bestSc = 0, bestAddr = null;
       orderAddrs.forEach(([n, data]) => {
-        const sc = jaccard(mpKey, n);
+        // Usar addrMatch con normAddr completo (preserva "y" para intersecciones)
+        const sc = addrMatch(mp.norm, data.norm) ? 1 : jaccard(mpKey, n);
         if (sc > bestSc) { bestSc = sc; bestAddr = [n, data]; }
       });
-      if (bestSc >= THRESHOLD && bestAddr) {
+      if ((bestSc >= 1 || bestSc >= THRESHOLD) && bestAddr) {
         // Calcular días con incumplimientos del tipo correspondiente
         const tipoField = {'Basural':'basurales','Volcadero':'volcaderos','RNH':'rnh',
           'Falta de recolección':'faltaRecoleccion','Barrido':'barrido'}[bestAddr[1].tipo] || null;
@@ -2281,7 +2322,7 @@ function runCrossRef() {
           const tieneItem = o.items.some(i => {
             const ok = i.tipo === bestAddr[1].tipo;
             const mk2 = normAddr(i.ubic).split(' ').filter(t=>t.length>2).sort().join(' ');
-            return ok && (jaccard(mpKey, mk2) >= THRESHOLD || isSubset(mpKey, mk2));
+            return ok && (addrMatch(mpKey, mk2) || isSubset(mpKey, mk2));
           });
           if (tieneItem) {
             diasEnOrdenes++;
@@ -2329,7 +2370,7 @@ function runCrossRef() {
     orderAddrs.forEach(([n, d]) => {
       if (matchedNorms.has(n) || d.count < 3) return;
       for (const mk of matchedKeysList) {
-        if (jaccard(n, mk) >= THRESHOLD || isSubset(n, mk)) {
+        if (addrMatch(n, mk) || isSubset(n, mk)) {
           matchedNorms.add(n);
           break;
         }
@@ -2344,7 +2385,7 @@ function runCrossRef() {
         const mpKey = (mp.norm||normAddr(mp.nombre||'')).split(' ').filter(t=>t.length>2).sort().join(' ');
         orderAddrs.forEach(([n]) => {
           if (excludedByInactivos.has(n)) return;
-          if (jaccard(mpKey, n) >= THRESHOLD || isSubset(mpKey, n))
+          if (addrMatch(mpKey, n) || isSubset(mpKey, n))
             excludedByInactivos.add(n);
         });
       });
@@ -2353,7 +2394,7 @@ function runCrossRef() {
       orderAddrs.forEach(([n, d]) => {
         if (excludedByInactivos.has(n) || d.count < 3) return;
         for (const mk of exList)
-          if (jaccard(n, mk) >= THRESHOLD || isSubset(n, mk)) { excludedByInactivos.add(n); break; }
+          if (addrMatch(n, mk) || isSubset(n, mk)) { excludedByInactivos.add(n); break; }
       });
     }
 
@@ -2374,7 +2415,7 @@ function runCrossRef() {
         const sc = jaccard(mpKey, n);
         if (sc > bestSc) { bestSc = sc; bestAddr = [n, data]; }
       });
-      if (bestSc >= THRESHOLD && bestAddr) {
+      if ((bestSc >= 1 || bestSc >= THRESHOLD) && bestAddr) {
         reactivados.push({
           mapNombre: mp.nombre, mapLat: mp.lat, mapLng: mp.lng,
           ordRaw: bestAddr[1].raw, count: bestAddr[1].count,
