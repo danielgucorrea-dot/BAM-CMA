@@ -727,12 +727,19 @@ function incumplDetailHTML(fecha) {
 
 // ══════════════════════════════════════════
 // ══════════════════════════════════════════
-const ZONA_LAT = -26.831;
-let leafletMap = null;
-
-function isNorte(lat) { return parseFloat(lat) > ZONA_LAT; }
+// Línea divisoria definida por dos puntos exactos
+const LINE_A = [-26.818429, -65.264615];
+const LINE_B = [-26.836939, -65.174625];
+// Ecuación de la recta: punto está al norte si está "por encima" de la línea
+function isNorte(lat, lng) {
+  // Interpolación: latitud de la línea en el lng del punto
+  const t = (lng - LINE_A[1]) / (LINE_B[1] - LINE_A[1]);
+  const latLinea = LINE_A[0] + t * (LINE_B[0] - LINE_A[0]);
+  return parseFloat(lat) > latLinea; // lat menos negativa = más al norte
+}
 
 let mapaMode = 'activos';
+let leafletMap = null;
 
 function setMapaMode(mode) {
   mapaMode = mode;
@@ -756,10 +763,10 @@ function setMapaMode(mode) {
 
 function updateMapaStats() {
   if (!mapData.length) return;
-  const actNorte = mapData.filter(p => isNorte(p.lat));
-  const actSur   = mapData.filter(p => !isNorte(p.lat));
-  const inaNorte = mapInactivos.filter(p => isNorte(p.lat));
-  const inaSur   = mapInactivos.filter(p => !isNorte(p.lat));
+  const actNorte = mapData.filter(p => isNorte(p.lat, p.lng));
+  const actSur   = mapData.filter(p => !isNorte(p.lat, p.lng));
+  const inaNorte = mapInactivos.filter(p => isNorte(p.lat, p.lng));
+  const inaSur   = mapInactivos.filter(p => !isNorte(p.lat, p.lng));
   const totalAct = mapData.length;
   const totalIna = mapInactivos.length;
   const gran     = totalAct + totalIna;
@@ -833,8 +840,8 @@ function renderMapaView() {
     return;
   }
 
-  const norte = mapData.filter(p => isNorte(p.lat));
-  const sur   = mapData.filter(p => !isNorte(p.lat));
+  const norte = mapData.filter(p => isNorte(p.lat, p.lng));
+  const sur   = mapData.filter(p => !isNorte(p.lat, p.lng));
   const total = mapData.length;
 
   document.getElementById('mapa-sub').textContent = `${total} puntos activos · ${mapInactivos.length} inactivos`;
@@ -869,8 +876,8 @@ function renderMapaView() {
 
 function updateMapaTop5() {
   if (!mapData.length) return;
-  const norte = mapData.filter(p => isNorte(p.lat));
-  const sur   = mapData.filter(p => !isNorte(p.lat));
+  const norte = mapData.filter(p => isNorte(p.lat, p.lng));
+  const sur   = mapData.filter(p => !isNorte(p.lat, p.lng));
   const sel   = document.getElementById('mapa-mes-sel');
   const mesFilter = sel ? sel.value : '';
   const MNAMES = {1:'Enero',2:'Febrero',3:'Marzo',4:'Abril',5:'Mayo',6:'Junio',
@@ -939,20 +946,9 @@ function initLeafletMap() {
       leafletMap.eachLayer(l => { if (!(l instanceof L.TileLayer)) leafletMap.removeLayer(l); });
     }
 
-    // ── Línea divisoria: traza real de Benjamín Aráoz / 24 de Septiembre / Mate de Luna ──
-    // Coordenadas aproximadas del eje de la avenida de este a oeste
-    const lineaDivisoria = [
-      [-26.8295, -65.1820],  // Benjamín Aráoz (este, cerca Av. Alem)
-      [-26.8295, -65.1950],  // Benjamín Aráoz centro-este
-      [-26.8288, -65.2080],  // 24 de Septiembre (centro)
-      [-26.8285, -65.2150],  // 24 de Septiembre (Plaza Independencia)
-      [-26.8290, -65.2280],  // 24 de Septiembre (oeste)
-      [-26.8310, -65.2420],  // Mate de Luna (inicio)
-      [-26.8330, -65.2580],  // Mate de Luna (centro)
-      [-26.8340, -65.2750],  // Mate de Luna (oeste)
-    ];
-    L.polyline(lineaDivisoria, {
-      color: '#555', weight: 3, dashArray: '8,5', opacity: .85
+    // ── Línea divisoria: Benjamín Aráoz / 24 de Septiembre / Mate de Luna ──
+    L.polyline([[-26.818429, -65.264615], [-26.836939, -65.174625]], {
+      color: '#333', weight: 3, dashArray: '8,5', opacity: .9
     }).addTo(leafletMap).bindPopup('<b>Av. Benjamín Aráoz / 24 de Septiembre / Mate de Luna</b><br>Límite Zona Norte / Zona Sur');
 
     // Etiquetas de zona
@@ -992,7 +988,7 @@ function initLeafletMap() {
           fillColor: '#D32F2F', fillOpacity: .9
         }).addTo(leafletMap).bindPopup(
           `<b>${p.nombre}</b><br>
-          <span style="color:#888;font-size:11px">${isNorte(p.lat)?'Zona Norte':'Zona Sur'}</span>
+          <span style="color:#888;font-size:11px">${isNorte(p.lat, p.lng)?'Zona Norte':'Zona Sur'}</span>
           ${freq ? `<br><b style="color:#D32F2F">${freq}× en órdenes</b>` : '<br><i style="color:#aaa">Sin registros en el período</i>'}`
         );
       });
