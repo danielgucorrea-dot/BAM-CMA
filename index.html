@@ -751,6 +751,7 @@ function setMapaMode(mode) {
     btn.style.color        = isActive ? c.color  : '#1A2E1A';
   });
   updateMapaStats();
+  initLeafletMap(); // refrescar mapa según modo
 }
 
 function updateMapaStats() {
@@ -913,6 +914,7 @@ function updateMapaTop5() {
   }
   topZona(norte,'mapa-top-norte');
   topZona(sur,'mapa-top-sur');
+  initLeafletMap(); // refrescar mapa con nueva frecuencia por mes
 }
 
 function initLeafletMap() {
@@ -929,73 +931,83 @@ function initLeafletMap() {
       return;
     }
     if (!leafletMap) {
-      leafletMap = L.map('leaflet-map', {zoomControl:true}).setView([-26.834, -65.21], 13);
+      leafletMap = L.map('leaflet-map', {zoomControl:true}).setView([-26.834, -65.215], 13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
-        maxZoom: 19,
-        crossOrigin: true
+        attribution: '© OpenStreetMap', maxZoom: 19, crossOrigin: true
       }).addTo(leafletMap);
     } else {
       leafletMap.eachLayer(l => { if (!(l instanceof L.TileLayer)) leafletMap.removeLayer(l); });
-      leafletMap.setView([-26.834, -65.21], 13);
     }
 
-    // Línea divisoria
-    const lineColor = '#888';
-    L.polyline([[-26.831, -65.15], [-26.831, -65.30]], {
-      color: lineColor, weight: 2, dashArray: '6,6', opacity: .7
-    }).addTo(leafletMap).bindPopup('Av. Benjamín Aráoz / 24 de Septiembre / Mate de Luna');
+    // ── Línea divisoria: traza real de Benjamín Aráoz / 24 de Septiembre / Mate de Luna ──
+    // Coordenadas aproximadas del eje de la avenida de este a oeste
+    const lineaDivisoria = [
+      [-26.8295, -65.1820],  // Benjamín Aráoz (este, cerca Av. Alem)
+      [-26.8295, -65.1950],  // Benjamín Aráoz centro-este
+      [-26.8288, -65.2080],  // 24 de Septiembre (centro)
+      [-26.8285, -65.2150],  // 24 de Septiembre (Plaza Independencia)
+      [-26.8290, -65.2280],  // 24 de Septiembre (oeste)
+      [-26.8310, -65.2420],  // Mate de Luna (inicio)
+      [-26.8330, -65.2580],  // Mate de Luna (centro)
+      [-26.8340, -65.2750],  // Mate de Luna (oeste)
+    ];
+    L.polyline(lineaDivisoria, {
+      color: '#555', weight: 3, dashArray: '8,5', opacity: .85
+    }).addTo(leafletMap).bindPopup('<b>Av. Benjamín Aráoz / 24 de Septiembre / Mate de Luna</b><br>Límite Zona Norte / Zona Sur');
 
     // Etiquetas de zona
-    L.marker([-26.815, -65.21], {icon: L.divIcon({
-      html: '<div style="background:#2D6A2F;color:#fff;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap">ZONA NORTE</div>',
-      iconSize: [100,24], iconAnchor:[50,12]
+    L.marker([-26.814, -65.215], {icon: L.divIcon({
+      html: '<div style="background:#2D6A2F;color:#fff;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,.3)">▲ ZONA NORTE</div>',
+      iconSize: [110,22], iconAnchor:[55,11]
     })}).addTo(leafletMap);
-    L.marker([-26.850, -65.21], {icon: L.divIcon({
-      html: '<div style="background:#1565C0;color:#fff;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap">ZONA SUR</div>',
-      iconSize: [90,24], iconAnchor:[45,12]
+    L.marker([-26.852, -65.215], {icon: L.divIcon({
+      html: '<div style="background:#555;color:#fff;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,.3)">▼ ZONA SUR</div>',
+      iconSize: [90,22], iconAnchor:[45,11]
     })}).addTo(leafletMap);
-    mapData.forEach(p => {
-      // Usar historial completo (no filtrado por mes) para tamaño de círculos
-      if (!window._mapaFreqAll) {
-        window._mapaFreqAll = {};
-        orders.forEach(o => {
-          o.items.forEach(i => {
-            if (i.tipo !== 'Basural' && i.tipo !== 'Volcadero') return;
-            const key = normAddr(i.ubic);
-            window._mapaFreqAll[key] = (window._mapaFreqAll[key]||0)+1;
-          });
-        });
-      }
-      const fqa = window._mapaFreqAll;
-      const k2 = normAddr(p.nombre);
-      let freq = fqa[k2] || 0;
+
+    // ── Frecuencia filtrada por mes (del selector) ──
+    const fq = window._mapaFreqMap || {};
+    function getFreq(nombre) {
+      const k = normAddr(nombre);
+      let freq = fq[k] || 0;
       if (!freq) {
-        const kt2 = new Set(k2.split(' ').filter(t=>t.length>2));
-        Object.keys(fqa).forEach(fk => {
-          const c = fk.split(' ').filter(t=>t.length>2).filter(t=>kt2.has(t)).length;
-          if (c>=2 && fqa[fk]>freq) freq = fqa[fk];
+        const kt = new Set(k.split(' ').filter(t=>t.length>2));
+        Object.keys(fq).forEach(fk => {
+          const c = fk.split(' ').filter(t=>t.length>2).filter(t=>kt.has(t)).length;
+          if (c>=2 && fq[fk]>freq) freq = fq[fk];
         });
       }
-      const r = freq > 120 ? 14 : freq > 80 ? 12 : freq > 40 ? 10 : freq > 15 ? 8 : freq > 5 ? 6 : 5;
-      L.circleMarker([p.lat, p.lng], {
-        radius: r, color: '#fff', weight: 1.5,
-        fillColor: '#D32F2F', fillOpacity: .9
-      }).addTo(leafletMap).bindPopup(
-        `<b style="font-size:13px">${p.nombre}</b><br>
-        <span style="color:#666">${isNorte(p.lat)?'Zona Norte':'Zona Sur'}</span>
-        ${freq ? `<br><b style="color:#D32F2F">${freq}× en órdenes</b>` : ''}`
-      );
-    });
-    mapInactivos.forEach(p => {
-      L.circleMarker([p.lat, p.lng], {
-        radius: 5, color: '#fff', weight: 1.5,
-        fillColor: '#2D6A2F', fillOpacity: .85
-      }).addTo(leafletMap).bindPopup(
-        `<b style="font-size:13px">${p.nombre}</b><br>
-        <span style="color:#2D6A2F">✅ Inactivo</span>`
-      );
-    });
+      return freq;
+    }
+
+    // ── Mostrar según modo seleccionado ──
+    const modo = mapaMode || 'total';
+
+    if (modo === 'activos' || modo === 'total') {
+      mapData.forEach(p => {
+        const freq = getFreq(p.nombre);
+        const r = freq>120?14 : freq>80?12 : freq>40?10 : freq>15?8 : freq>5?6 : 5;
+        L.circleMarker([p.lat, p.lng], {
+          radius: r, color: '#fff', weight: 1.5,
+          fillColor: '#D32F2F', fillOpacity: .9
+        }).addTo(leafletMap).bindPopup(
+          `<b>${p.nombre}</b><br>
+          <span style="color:#888;font-size:11px">${isNorte(p.lat)?'Zona Norte':'Zona Sur'}</span>
+          ${freq ? `<br><b style="color:#D32F2F">${freq}× en órdenes</b>` : '<br><i style="color:#aaa">Sin registros en el período</i>'}`
+        );
+      });
+    }
+
+    if (modo === 'inactivos' || modo === 'total') {
+      mapInactivos.forEach(p => {
+        L.circleMarker([p.lat, p.lng], {
+          radius: 5, color: '#fff', weight: 1.5,
+          fillColor: '#2D6A2F', fillOpacity: .85
+        }).addTo(leafletMap).bindPopup(
+          `<b>${p.nombre}</b><br><span style="color:#2D6A2F">✅ Inactivo</span>`
+        );
+      });
+    }
 
     leafletMap.invalidateSize();
     setTimeout(() => leafletMap && leafletMap.invalidateSize(), 500);
