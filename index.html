@@ -3276,6 +3276,7 @@ let trMap = null, trFiltro = 'TODOS';
 let trCapas = { basurales:false, ordenes:false, radio:false };
 let trPvLG = null, trBasLG = null, trOrdLG = null, trRadLG = null;
 let trLoading = false;
+let trMapReady = false; // flag: mapa + layers listos
 
 const TR_COLORS = { BOTELLONES:'#1565C0', BOLSONES:'#2D6A2F', PV_FIJOS:'#F9A825', TULIPANES:'#C62828' };
 const TR_ICONS  = { BOTELLONES:'🔵', BOLSONES:'🟢', PV_FIJOS:'🟡', TULIPANES:'🌷' };
@@ -3329,52 +3330,70 @@ function initTrMap() {
   mapEl.style.height = '360px';
   setTimeout(() => {
     if (!trMap) {
-      trMap = L.map('tr-leaflet-map',{zoomControl:true}).setView([-26.835,-65.220],13);
+      trMap = L.map('tr-leaflet-map', {zoomControl:true}).setView([-26.835,-65.220], 13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        {attribution:'© OpenStreetMap',maxZoom:19,crossOrigin:true}).addTo(trMap);
+        {attribution:'© OpenStreetMap', maxZoom:19, crossOrigin:true}).addTo(trMap);
       trPvLG  = L.layerGroup().addTo(trMap);
       trBasLG = L.layerGroup();
       trOrdLG = L.layerGroup();
       trRadLG = L.layerGroup();
       L.polyline([[-26.818429,-65.264615],[-26.836939,-65.174625]],
-        {color:'#333',weight:2,dashArray:'6,4',opacity:.6}).addTo(trMap);
+        {color:'#333', weight:2, dashArray:'6,4', opacity:.6}).addTo(trMap);
     } else {
       trPvLG.clearLayers();
     }
+    trMapReady = true;
     renderTrPuntos();
+    // Re-aplicar capas que el usuario ya activó antes de que el mapa estuviera listo
+    if (trCapas.basurales) { trBasLG.addTo(trMap); renderTrCapa_basurales(); calcSemaforo(); }
+    if (trCapas.ordenes)   { trOrdLG.addTo(trMap); renderTrCapa_ordenes(); }
+    if (trCapas.radio)     { trRadLG.addTo(trMap); renderTrCapa_radio(); }
   }, 80);
 }
 
+// Renderiza puntos en chunks para no bloquear el hilo principal
 function renderTrPuntos() {
-  if (!trMap || !trPvLG || !PV_DATA) return;
+  if (!trMapReady || !trPvLG || !PV_DATA) return;
   trPvLG.clearLayers();
   const data = trFiltro==='TODOS' ? PV_DATA : PV_DATA.filter(p=>p.t===trFiltro);
-  data.forEach(p => {
-    const color = TR_COLORS[p.t]||'#2D6A2F';
-    L.circleMarker([p.a,p.g],{radius:6,fillColor:color,color:'#fff',weight:2,fillOpacity:.9})
-      .bindPopup(`<b style="font-size:12px">${TR_ICONS[p.t]||'●'} ${p.n||'(Sin nombre)'}</b>${p.d?'<br><span style="font-size:10px;color:#555">'+p.d+'</span>':''}<br><span style="font-size:10px;color:#2D6A2F;font-weight:700">${p.t.replace('_',' ')}</span>`)
-      .addTo(trPvLG);
-  });
-  document.getElementById('transforma-sub').textContent =
-    `${data.length} puntos · ${trFiltro==='TODOS'?'todos los tipos':(TR_ICONS[trFiltro]||'')+' '+trFiltro.replace('_',' ')}`;
+  const CHUNK = 60;
+  let i = 0;
+  function addChunk() {
+    const end = Math.min(i + CHUNK, data.length);
+    for (; i < end; i++) {
+      const p = data[i];
+      const color = TR_COLORS[p.t]||'#2D6A2F';
+      L.circleMarker([p.a,p.g], {radius:6,fillColor:color,color:'#fff',weight:2,fillOpacity:.9})
+        .bindPopup(`<b style="font-size:12px">${TR_ICONS[p.t]||'●'} ${p.n||'(Sin nombre)'}</b>${p.d?'<br><span style="font-size:10px;color:#555">'+p.d+'</span>':''}<br><span style="font-size:10px;color:#2D6A2F;font-weight:700">${p.t.replace('_',' ')}</span>`)
+        .addTo(trPvLG);
+    }
+    if (i < data.length) { setTimeout(addChunk, 0); return; }
+    document.getElementById('transforma-sub').textContent =
+      `${data.length} puntos · ${trFiltro==='TODOS'?'todos los tipos':(TR_ICONS[trFiltro]||'')+' '+trFiltro.replace('_',' ')}`;
+  }
+  addChunk();
 }
 
 function setTrFiltro(tipo, el) {
   trFiltro = tipo;
   document.querySelectorAll('#tr-chips .chip').forEach(c=>c.classList.remove('active'));
   if (el) el.classList.add('active');
-  renderTrPuntos();
-  if (trCapas.radio) { trRadLG.clearLayers(); renderTrCapa_radio(); }
+  if (trMapReady) {
+    renderTrPuntos();
+    if (trCapas.radio) { trRadLG.clearLayers(); renderTrCapa_radio(); }
+  }
+  // Si el mapa no está listo aún, trFiltro quedó guardado y se aplicará cuando cargue
 }
 
 function toggleTrCapa(capa) {
   trCapas[capa] = !trCapas[capa];
   const btn = document.getElementById('tr-toggle-'+capa);
-  const cols = {basurales:'#D32F2F',ordenes:'#2D6A2F',radio:'#1565C0'};
-  btn.style.background = trCapas[capa] ? cols[capa] : '#EAF3DE';
-  btn.style.color      = trCapas[capa] ? '#fff' : cols[capa];
+  const cols = {basurales:'#D32F2F', ordenes:'#2D6A2F', radio:'#1565C0'};
+  btn.style.background  = trCapas[capa] ? cols[capa] : '#EAF3DE';
+  btn.style.color       = trCapas[capa] ? '#fff' : cols[capa];
   btn.style.borderColor = cols[capa];
-  if (!trMap) return;
+  // Feedback visual inmediato aunque el mapa no esté listo
+  if (!trMapReady) return; // se aplicará en initTrMap cuando el mapa esté listo
   if (capa==='basurales') {
     if (trCapas.basurales) { trBasLG.addTo(trMap); renderTrCapa_basurales(); calcSemaforo(); }
     else trBasLG.remove();
