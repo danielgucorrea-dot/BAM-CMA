@@ -47,7 +47,7 @@ button{cursor:pointer;font-family:inherit}
 
 /* ── BOTTOM NAV ── */
 .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid #DCE8DC;display:flex;z-index:200;box-shadow:0 -2px 8px rgba(45,106,47,.08)}
-.nav-btn{flex:1;padding:10px 0 8px;background:none;border:none;color:#2D5A2F;font-size:9px;font-family:'Poppins',sans-serif;letter-spacing:.08em;display:flex;flex-direction:column;align-items:center;gap:2px;transition:color .2s}
+.nav-btn{flex:1;padding:10px 0 8px;background:none;border:none;color:#2D5A2F;font-size:8px;font-family:'Poppins',sans-serif;letter-spacing:.05em;display:flex;flex-direction:column;align-items:center;gap:2px;transition:color .2s}
 .nav-btn.active{color:#2D6A2F;font-weight:600}
 .nav-icon{font-size:18px}
 
@@ -325,6 +325,7 @@ button{cursor:pointer;font-family:inherit}
   <button class="nav-btn active" id="nav-analytics" onclick="showView('analytics')"><span class="nav-icon">📊</span>ANÁLISIS</button>
   <button class="nav-btn" id="nav-cruce" onclick="showView('cruce')"><span class="nav-icon">🔀</span>CRUCE</button>
   <button class="nav-btn" id="nav-mapa" onclick="showView('mapa')"><span class="nav-icon">🗺️</span>MAPA</button>
+  <button class="nav-btn" id="nav-transforma" onclick="showView('transforma')"><span class="nav-icon">♻️</span>TRANSFORMÁ</button>
   <button class="nav-btn" id="nav-import" onclick="showView('import')"><span class="nav-icon">⬆</span>IMPORT</button>
 </nav>
 
@@ -1318,11 +1319,11 @@ function selectDayClear() {
 // NAVIGATION
 // ══════════════════════════════════════════
 function showView(name) {
-  ['home','order','analytics','import','cruce','mapa'].forEach(v => {
+  ['home','order','analytics','import','cruce','mapa','transforma'].forEach(v => {
     const el = document.getElementById('v-'+v);
     if (el) el.classList.toggle('hidden', v !== name);
   });
-  ['home','analytics','import','cruce','mapa'].forEach(v => {
+  ['home','analytics','import','cruce','mapa','transforma'].forEach(v => {
     const b = document.getElementById('nav-'+v);
     if (b) b.classList.toggle('active', v === name);
   });
@@ -1336,6 +1337,7 @@ function showView(name) {
   if (name === 'import') renderImportSummary();
   if (name === 'cruce') renderCruceView();
   if (name === 'mapa') renderMapaView();
+  if (name === 'transforma') renderTransformaView();
 }
 
 function goBack() { showView('home'); }
@@ -3172,5 +3174,312 @@ if (sessionStorage.getItem('auth') === '1') {
   document.getElementById('login-screen').style.display = 'none';
 }
 </script>
+
+
+<!-- ══ TRANSFORMÁ VIEW ══ -->
+<div id="v-transforma" class="hidden">
+  <div class="hdr">
+    <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.1em;margin-bottom:2px">SECRETARÍA DE AMBIENTE · SMT</div>
+    <div class="hdr-title">♻️ TRANSFORMÁ</div>
+    <div class="hdr-sub" id="transforma-sub">Red de Puntos Verdes · SMT</div>
+  </div>
+
+  <!-- KPIs -->
+  <div style="padding:10px 12px 0">
+    <div class="stats-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
+      <div class="stat"><div class="stat-val" id="tr-total" style="color:#2D6A2F">—</div><div class="stat-lbl">TOTAL</div></div>
+      <div class="stat"><div class="stat-val" id="tr-botellones" style="color:#1565C0">—</div><div class="stat-lbl">BOTELL.</div></div>
+      <div class="stat"><div class="stat-val" id="tr-bolsones" style="color:#2D6A2F">—</div><div class="stat-lbl">BOLSONES</div></div>
+      <div class="stat"><div class="stat-val" id="tr-otros" style="color:#558B2F">—</div><div class="stat-lbl">PV+TUL.</div></div>
+    </div>
+  </div>
+
+  <!-- Filtros tipo -->
+  <div style="padding:8px 12px 0">
+    <div class="chips" id="tr-chips">
+      <button class="chip active" onclick="setTrFiltro('TODOS',this)">TODOS</button>
+      <button class="chip" onclick="setTrFiltro('BOTELLONES',this)">🔵 Botellones</button>
+      <button class="chip" onclick="setTrFiltro('BOLSONES',this)">🟢 Bolsones</button>
+      <button class="chip" onclick="setTrFiltro('PV_FIJOS',this)">🟡 Puntos Verdes</button>
+      <button class="chip" onclick="setTrFiltro('TULIPANES',this)">🌷 Tulipanes</button>
+    </div>
+  </div>
+
+  <!-- Toggle capas cruce -->
+  <div style="padding:6px 12px 0;display:flex;gap:6px;flex-wrap:wrap">
+    <button id="tr-toggle-basurales" onclick="toggleTrCapa('basurales')"
+      style="flex:1;min-width:110px;padding:7px 4px;border-radius:8px;border:2px solid #D32F2F;background:#EAF3DE;color:#D32F2F;font-weight:700;font-size:11px;cursor:pointer;font-family:'Poppins',sans-serif">
+      🔴 Basurales activos
+    </button>
+    <button id="tr-toggle-ordenes" onclick="toggleTrCapa('ordenes')"
+      style="flex:1;min-width:110px;padding:7px 4px;border-radius:8px;border:2px solid #C0DD97;background:#EAF3DE;color:#2D6A2F;font-weight:700;font-size:11px;cursor:pointer;font-family:'Poppins',sans-serif">
+      📋 Órdenes servicio
+    </button>
+    <button id="tr-toggle-radio" onclick="toggleTrCapa('radio')"
+      style="flex:1;min-width:110px;padding:7px 4px;border-radius:8px;border:2px solid #1565C0;background:#EAF3DE;color:#1565C0;font-weight:700;font-size:11px;cursor:pointer;font-family:'Poppins',sans-serif">
+      ⭕ Radio 500m
+    </button>
+  </div>
+
+  <!-- Mapa -->
+  <div style="padding:8px 12px 0">
+    <div id="tr-leaflet-map" style="height:360px;width:100%;border-radius:10px;border:1px solid #C0DD97;background:#e8f0e8;display:flex;align-items:center;justify-content:center">
+      <span style="font-size:12px;color:#4A6A4A">Cargando mapa…</span>
+    </div>
+  </div>
+
+  <!-- Semaforización -->
+  <div style="padding:10px 12px 0">
+    <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.06em">BASURALES: COBERTURA DE PUNTOS VERDES</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+      <div style="background:#EAF3DE;border:2px solid #2D6A2F;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:20px;font-weight:900;color:#2D6A2F" id="tr-sem-verde">—</div>
+        <div style="font-size:9px;font-weight:700;color:#1A2E1A">🟢 &lt;500m</div>
+      </div>
+      <div style="background:#EAF3DE;border:2px solid #FF8F00;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:20px;font-weight:900;color:#FF8F00" id="tr-sem-amarillo">—</div>
+        <div style="font-size:9px;font-weight:700;color:#1A2E1A">🟡 &lt;1km</div>
+      </div>
+      <div style="background:#EAF3DE;border:2px solid #D32F2F;border-radius:8px;padding:8px;text-align:center">
+        <div style="font-size:20px;font-weight:900;color:#D32F2F" id="tr-sem-rojo">—</div>
+        <div style="font-size:9px;font-weight:700;color:#1A2E1A">🔴 Sin cobertura</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Densidad por zona -->
+  <div style="padding:10px 12px 80px">
+    <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.06em">DENSIDAD POR ZONA</div>
+    <div style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:12px;font-weight:600;color:#1A2E1A">Zona Norte</span>
+        <span style="font-size:12px;font-weight:700;color:#2D6A2F" id="tr-zona-norte">—</span>
+      </div>
+      <div style="background:#ddd;border-radius:99px;height:10px;overflow:hidden;margin-bottom:8px">
+        <div id="tr-bar-norte" style="height:100%;background:#2D6A2F;border-radius:99px;transition:width .5s;width:0%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:12px;font-weight:600;color:#1A2E1A">Zona Sur</span>
+        <span style="font-size:12px;font-weight:700;color:#558B2F" id="tr-zona-sur">—</span>
+      </div>
+      <div style="background:#ddd;border-radius:99px;height:10px;overflow:hidden">
+        <div id="tr-bar-sur" style="height:100%;background:#558B2F;border-radius:99px;transition:width .5s;width:0%"></div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:4px;letter-spacing:.06em">ÓRDENES EN RADIO 500m DE PUNTOS VERDES</div>
+    <div id="tr-ordenes-cercanas" style="font-size:11px;color:#4A6A4A;padding:4px 0">Activá la capa de basurales para calcular</div>
+  </div>
+</div><!-- end v-transforma -->
+
+<script>
+// ══════════════════════════════════════════
+// MÓDULO TRANSFORMÁ — carga lazy del JSON externo
+// ══════════════════════════════════════════
+let PV_DATA = null;
+let trMap = null, trFiltro = 'TODOS';
+let trCapas = { basurales:false, ordenes:false, radio:false };
+let trPvLG = null, trBasLG = null, trOrdLG = null, trRadLG = null;
+let trLoading = false;
+
+const TR_COLORS = { BOTELLONES:'#1565C0', BOLSONES:'#2D6A2F', PV_FIJOS:'#F9A825', TULIPANES:'#C62828' };
+const TR_ICONS  = { BOTELLONES:'🔵', BOLSONES:'🟢', PV_FIJOS:'🟡', TULIPANES:'🌷' };
+
+function trDistM(a1,g1,a2,g2){
+  const R=6371000,rad=Math.PI/180,dA=(a2-a1)*rad,dG=(g2-g1)*rad;
+  return 2*R*Math.asin(Math.sqrt(Math.sin(dA/2)**2+Math.cos(a1*rad)*Math.cos(a2*rad)*Math.sin(dG/2)**2));
+}
+
+async function loadPvData() {
+  if (PV_DATA) return PV_DATA;
+  try {
+    const r = await fetch('pv_data.json');
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    PV_DATA = await r.json();
+    return PV_DATA;
+  } catch(e) {
+    console.error('Error cargando pv_data.json:', e);
+    return null;
+  }
+}
+
+async function renderTransformaView() {
+  if (trLoading) return;
+  trLoading = true;
+  document.getElementById('transforma-sub').textContent = 'Cargando datos…';
+
+  const data = await loadPvData();
+  trLoading = false;
+  if (!data) {
+    document.getElementById('transforma-sub').textContent = '⚠ No se pudo cargar pv_data.json';
+    return;
+  }
+
+  // KPIs
+  const counts = { BOTELLONES:0, BOLSONES:0, PV_FIJOS:0, TULIPANES:0 };
+  data.forEach(p => counts[p.t] = (counts[p.t]||0)+1);
+  document.getElementById('tr-total').textContent = data.length;
+  document.getElementById('tr-botellones').textContent = counts.BOTELLONES||0;
+  document.getElementById('tr-bolsones').textContent   = counts.BOLSONES||0;
+  document.getElementById('tr-otros').textContent = (counts.PV_FIJOS||0)+(counts.TULIPANES||0);
+
+  calcTrStats();
+  initTrMap();
+}
+
+function initTrMap() {
+  const mapEl = document.getElementById('tr-leaflet-map');
+  if (!mapEl || typeof L === 'undefined' || !PV_DATA) return;
+  mapEl.innerHTML = '';
+  mapEl.style.height = '360px';
+  setTimeout(() => {
+    if (!trMap) {
+      trMap = L.map('tr-leaflet-map',{zoomControl:true}).setView([-26.835,-65.220],13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {attribution:'© OpenStreetMap',maxZoom:19,crossOrigin:true}).addTo(trMap);
+      trPvLG  = L.layerGroup().addTo(trMap);
+      trBasLG = L.layerGroup();
+      trOrdLG = L.layerGroup();
+      trRadLG = L.layerGroup();
+      L.polyline([[-26.818429,-65.264615],[-26.836939,-65.174625]],
+        {color:'#333',weight:2,dashArray:'6,4',opacity:.6}).addTo(trMap);
+    } else {
+      trPvLG.clearLayers();
+    }
+    renderTrPuntos();
+  }, 80);
+}
+
+function renderTrPuntos() {
+  if (!trMap || !trPvLG || !PV_DATA) return;
+  trPvLG.clearLayers();
+  const data = trFiltro==='TODOS' ? PV_DATA : PV_DATA.filter(p=>p.t===trFiltro);
+  data.forEach(p => {
+    const color = TR_COLORS[p.t]||'#2D6A2F';
+    L.circleMarker([p.a,p.g],{radius:6,fillColor:color,color:'#fff',weight:2,fillOpacity:.9})
+      .bindPopup(`<b style="font-size:12px">${TR_ICONS[p.t]||'●'} ${p.n||'(Sin nombre)'}</b>${p.d?'<br><span style="font-size:10px;color:#555">'+p.d+'</span>':''}<br><span style="font-size:10px;color:#2D6A2F;font-weight:700">${p.t.replace('_',' ')}</span>`)
+      .addTo(trPvLG);
+  });
+  document.getElementById('transforma-sub').textContent =
+    `${data.length} puntos · ${trFiltro==='TODOS'?'todos los tipos':(TR_ICONS[trFiltro]||'')+' '+trFiltro.replace('_',' ')}`;
+}
+
+function setTrFiltro(tipo, el) {
+  trFiltro = tipo;
+  document.querySelectorAll('#tr-chips .chip').forEach(c=>c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderTrPuntos();
+  if (trCapas.radio) { trRadLG.clearLayers(); renderTrCapa_radio(); }
+}
+
+function toggleTrCapa(capa) {
+  trCapas[capa] = !trCapas[capa];
+  const btn = document.getElementById('tr-toggle-'+capa);
+  const cols = {basurales:'#D32F2F',ordenes:'#2D6A2F',radio:'#1565C0'};
+  btn.style.background = trCapas[capa] ? cols[capa] : '#EAF3DE';
+  btn.style.color      = trCapas[capa] ? '#fff' : cols[capa];
+  btn.style.borderColor = cols[capa];
+  if (!trMap) return;
+  if (capa==='basurales') {
+    if (trCapas.basurales) { trBasLG.addTo(trMap); renderTrCapa_basurales(); calcSemaforo(); }
+    else trBasLG.remove();
+  }
+  if (capa==='ordenes') {
+    if (trCapas.ordenes) { trOrdLG.addTo(trMap); renderTrCapa_ordenes(); }
+    else trOrdLG.remove();
+  }
+  if (capa==='radio') {
+    if (trCapas.radio) { trRadLG.addTo(trMap); renderTrCapa_radio(); }
+    else trRadLG.remove();
+  }
+}
+
+function renderTrCapa_basurales() {
+  trBasLG.clearLayers();
+  (typeof mapData!=='undefined'?mapData:[]).forEach(p=>{
+    const lat=parseFloat(p.lat),lng=parseFloat(p.lng);
+    if(isNaN(lat))return;
+    L.circleMarker([lat,lng],{radius:7,fillColor:'#D32F2F',color:'#fff',weight:2,fillOpacity:.85})
+      .bindPopup(`<b>🔴 Basural activo</b><br><span style="font-size:11px">${p.nombre||''}</span>`)
+      .addTo(trBasLG);
+  });
+}
+
+function renderTrCapa_ordenes() {
+  trOrdLG.clearLayers();
+  const fq={};
+  (typeof orders!=='undefined'?orders:[]).forEach(o=>o.items.forEach(i=>{
+    if(i.tipo!=='Basural'&&i.tipo!=='Volcadero')return;
+    const k=(i.ubic||'').toLowerCase().trim();
+    fq[k]=(fq[k]||0)+1;
+  }));
+  (typeof mapData!=='undefined'?mapData:[]).forEach(p=>{
+    const lat=parseFloat(p.lat),lng=parseFloat(p.lng);
+    if(isNaN(lat))return;
+    const k=(p.nombre||'').toLowerCase().trim();
+    let freq=fq[k]||0;
+    if(!freq){
+      const kt=new Set(k.split(' ').filter(t=>t.length>3));
+      Object.keys(fq).forEach(fk=>{const c=fk.split(' ').filter(t=>t.length>3&&kt.has(t)).length;if(c>=2)freq=Math.max(freq,fq[fk]);});
+    }
+    if(!freq)return;
+    L.circleMarker([lat,lng],{radius:Math.min(4+freq*2,18),fillColor:'#FF6F00',color:'#fff',weight:1.5,fillOpacity:.75})
+      .bindPopup(`<b>📋 ${p.nombre||'Basural'}</b><br><span style="color:#FF6F00;font-weight:700">${freq} orden(es)</span>`)
+      .addTo(trOrdLG);
+  });
+}
+
+function renderTrCapa_radio() {
+  trRadLG.clearLayers();
+  if (!PV_DATA) return;
+  const data = trFiltro==='TODOS'?PV_DATA:PV_DATA.filter(p=>p.t===trFiltro);
+  data.forEach(p=>L.circle([p.a,p.g],{radius:500,fillColor:TR_COLORS[p.t]||'#2D6A2F',
+    fillOpacity:.07,color:TR_COLORS[p.t]||'#2D6A2F',weight:1,opacity:.3}).addTo(trRadLG));
+}
+
+function calcSemaforo() {
+  if (!PV_DATA) return;
+  const bas = typeof mapData!=='undefined'?mapData:[];
+  let v=0,a=0,r=0;
+  bas.forEach(b=>{
+    const blat=parseFloat(b.lat),blng=parseFloat(b.lng);
+    if(isNaN(blat))return;
+    let min=Infinity;
+    PV_DATA.forEach(p=>{const d=trDistM(blat,blng,p.a,p.g);if(d<min)min=d;});
+    if(min<=500)v++; else if(min<=1000)a++; else r++;
+  });
+  document.getElementById('tr-sem-verde').textContent=v;
+  document.getElementById('tr-sem-amarillo').textContent=a;
+  document.getElementById('tr-sem-rojo').textContent=r;
+  // Actualizar panel de órdenes cercanas
+  const cercanas={};
+  (typeof orders!=='undefined'?orders:[]).forEach(o=>o.items.forEach(i=>{
+    if(i.tipo!=='Basural'&&i.tipo!=='Volcadero')return;
+    bas.forEach(b=>{
+      const blat=parseFloat(b.lat),blng=parseFloat(b.lng);
+      if(isNaN(blat))return;
+      if(PV_DATA.some(pv=>trDistM(blat,blng,pv.a,pv.g)<=500)){
+        const k=b.nombre||i.ubic||'?';
+        cercanas[k]=(cercanas[k]||0)+1;
+      }
+    });
+  }));
+  const sorted=Object.entries(cercanas).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const el=document.getElementById('tr-ordenes-cercanas');
+  el.innerHTML=sorted.length?sorted.map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #C0DD97"><span style="font-size:10px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:6px">${k}</span><b style="color:#D32F2F;font-size:11px;flex-shrink:0">${v}×</b></div>`).join('')
+    :'<span style="color:#4A6A4A">Sin coincidencias con órdenes cargadas.</span>';
+}
+
+function calcTrStats() {
+  if (!PV_DATA) return;
+  const norte=PV_DATA.filter(p=>(typeof isNorte==='function')?isNorte(p.a,p.g):p.a>-26.836).length;
+  const sur=PV_DATA.length-norte;
+  const pN=PV_DATA.length?Math.round(norte/PV_DATA.length*100):0;
+  document.getElementById('tr-zona-norte').textContent=`${norte} (${pN}%)`;
+  document.getElementById('tr-zona-sur').textContent=`${sur} (${100-pN}%)`;
+  document.getElementById('tr-bar-norte').style.width=pN+'%';
+  document.getElementById('tr-bar-sur').style.width=(100-pN)+'%';
+}
+</script>
+
 </body>
 </html>
