@@ -420,15 +420,18 @@ const INCUMPL_EMBEDDED=[{"fecha":"2026-02-02","acta":"25","rnh":4,"basurales":5,
 function loadEmbeddedData() {
   try {
     const el = document.getElementById('_backup_data');
-    if (!el) return false;
+    if (!el || !el.value) return false;
     const b = JSON.parse(el.value);
-    window._embOrders  = b.orders          || [];
-    window._embMap     = b.mapData         || [];
-    window._embMapIna  = b.mapInactivos    || [];
-    window._embIncumpl = b.incumplimientos || [];
-    window._mapaFreqAll = null; // reset cache
-    return window._embOrders.length > 0;
-  } catch(e) { console.error('loadEmbeddedData error:', e); return false; }
+    if (!b || !b.orders || !b.orders.length) return false;
+    orders = b.orders;
+    orders.sort((a,c)=>c.fecha.localeCompare(a.fecha));
+    mapData = (b.mapData||[]).map(p=>({...p,norm:normAddr(p.nombre||'')}));
+    mapInactivos = (b.mapInactivos||[]).map(p=>({...p,norm:normAddr(p.nombre||'')}));
+    incumplData = {};
+    (b.incumplimientos||[]).forEach(x=>{ incumplData[x.fecha]=x; });
+    window._mapaFreqAll = null;
+    return true;
+  } catch(e) { console.error('loadEmbeddedData:', e); return false; }
 }
 
 // ══════════════════════════════════════════
@@ -499,13 +502,11 @@ async function restoreFromBackup(backup) {
 
 async function loadAll() {
   try {
-    // Load embedded data (available to ALL users who open the link)
-    if (loadEmbeddedData()) {
-      orders      = window._embOrders;
-      mapData     = window._embMap.map(p=>({...p, norm:normAddr(p.nombre||'')}));
-      mapInactivos= window._embMapIna.map(p=>({...p, norm:normAddr(p.nombre||'')}));
-      window._embIncumpl.forEach(x=>{ incumplData[x.fecha]=x; });
-      orders.sort((a,b)=>b.fecha.localeCompare(a.fecha));
+    if (!loadEmbeddedData()) {
+      if (typeof INCUMPL_EMBEDDED !== 'undefined' && INCUMPL_EMBEDDED.length) {
+        incumplData = {};
+        INCUMPL_EMBEDDED.forEach(x=>{ incumplData[x.fecha]=x; });
+      }
     }
   } catch(e) { console.error('loadAll:', e); }
   renderHome();
@@ -1036,9 +1037,11 @@ function initLeafletMap() {
 // HOME VIEW MODES
 // ══════════════════════════════════════════
 let homeView = 'ordenes';
+let _renderVersion = 0; // Cancela renders anteriores al cambiar selección
 
 function setHomeView(v) {
   homeView = v;
+  _renderVersion++; // Cancelar renders en curso
   const btns = {
     'ordenes':  'btn-view-ords',
     'totales':  'btn-view-totales',
@@ -1062,10 +1065,12 @@ function setHomeView(v) {
       btn.style.color = isActive ? '#fff' : '#1565C0';
     }
   });
-  document.getElementById('order-list').style.display   = v==='ordenes'  ? '' : 'none';
-  document.getElementById('search-wrap').style.display  = v==='ordenes' && selectedMonth ? '' : 'none';
+  const calWrap = document.getElementById('cal-wrap');
+  document.getElementById('order-list').style.display    = v==='ordenes' ? '' : 'none';
+  document.getElementById('search-wrap').style.display   = v==='ordenes' && selectedMonth ? '' : 'none';
   document.getElementById('totales-panel').style.display = v==='totales' ? '' : 'none';
   document.getElementById('incumpl-panel').style.display = v==='incumpl' ? '' : 'none';
+  if (calWrap) calWrap.style.display = v==='ordenes' ? '' : 'none';
   if (v==='totales') renderTotalesPanel();
   if (v==='incumpl') renderIncumplPanel();
   if (v==='ordenes') renderOrderList();
@@ -1135,12 +1140,18 @@ function renderIncumplPanel() {
 
   // Filtrar por período seleccionado
   let entries = Object.entries(incumplData);
-  if (selectedYear) entries = entries.filter(([f])=>f.startsWith(selectedYear));
-  if (selectedMonth) entries = entries.filter(([f])=>f.slice(5,7)===String(selectedMonth||'').padStart(2,'0'));
+  if (selectedDay)   entries = entries.filter(([f]) => f === selectedDay);
+  else if (selectedYear) entries = entries.filter(([f])=>f.startsWith(selectedYear));
+  if (!selectedDay && selectedMonth) entries = entries.filter(([f])=>f.slice(5,7)===String(selectedMonth||'').padStart(2,'0'));
   entries.sort((a,b)=>a[0].localeCompare(b[0]));
 
   if (!entries.length) {
-    el.innerHTML = `<div style="text-align:center;padding:40px;color:#4A6A4A;font-size:13px">✅ Sin incumplimientos en el período</div>`;
+    const periodo = selectedDay ? 'este día' : selectedMonth ? 'este mes' : 'este período';
+    el.innerHTML = `<div style="text-align:center;padding:30px 20px;background:#EAF3DE;border-radius:10px;margin:8px 0">
+      <div style="font-size:24px;margin-bottom:8px">📋</div>
+      <div style="font-size:13px;font-weight:700;color:#2D6A2F">Sin información cargada</div>
+      <div style="font-size:11px;color:#4A6A4A;margin-top:4px">No hay registros de incumplimientos para ${periodo}</div>
+    </div>`;
     return;
   }
 
@@ -1168,7 +1179,10 @@ function renderIncumplPanel() {
   html += `<div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px">DETALLE POR FECHA</div>`;
   entries.forEach(([fecha, d]) => {
     const tot = d.total || TIPOS_INCUMPL.reduce((s,t)=>s+(d[t.key]||0),0);
-    if (!tot) return;
+    if (!tot) {
+      // Si tiene entrada pero todo es 0, mostrar como sin datos (no confundir con 0 real)
+      return;
+    }
     const [yy,mm,dd] = fecha.split('-');
     const dateStr = `${dd}/${mm}/${yy}`;
     html += `<div style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:7px;padding:8px 12px;margin-bottom:6px">
@@ -1209,80 +1223,95 @@ const FERIADOS_AR = {
 // ── CALENDARIO MENSUAL ──
 function renderCalendar(year, month) {
   const y = parseInt(year), m = parseInt(month);
+  const monthPad = String(month).padStart(2,'0');
   const diasConOrden = new Set(
-    orders.filter(o=>o.fecha.startsWith(`${year}-${month}`)).map(o=>parseInt(o.fecha.slice(8,10)))
+    orders.filter(o=>o.fecha.startsWith(`${year}-${monthPad}`)).map(o=>parseInt(o.fecha.slice(8,10)))
   );
   const diasConIncumpl = {};
   Object.entries(incumplData).forEach(([f,d])=>{
-    if (f.startsWith(`${year}-${String(month).padStart(2,'0')}`)) {
+    if (f.startsWith(`${year}-${monthPad}`))
       diasConIncumpl[parseInt(f.slice(8,10))] = d.total||0;
-    }
   });
 
   const DIAS = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'];
   const diasEnMes = new Date(y, m, 0).getDate();
-  // día de la semana del primer día (0=Dom→6, 1=Lun→0, etc) - Argentina: semana empieza lunes
-  let primerDia = new Date(y, m-1, 1).getDay(); // 0=Dom
-  primerDia = primerDia === 0 ? 6 : primerDia - 1; // convertir a lunes=0
+  let primerDia = new Date(y, m-1, 1).getDay();
+  primerDia = primerDia === 0 ? 6 : primerDia - 1;
 
   let html = `<div style="margin-top:8px">
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">
       ${DIAS.map(d=>`<div style="text-align:center;font-size:9px;font-weight:700;color:#2D6A2F;padding:3px 0">${d}</div>`).join('')}
     </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">`;
+    <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">`;
 
-  // Celdas vacías al inicio
   for (let i=0; i<primerDia; i++) html += `<div></div>`;
 
   for (let d=1; d<=diasEnMes; d++) {
-    const fechaStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const fechaStr = `${year}-${monthPad}-${String(d).padStart(2,'0')}`;
     const tieneOrden = diasConOrden.has(d);
     const tieneIncumpl = diasConIncumpl[d];
     const esFeriado = FERIADOS_AR[fechaStr];
     const hoy = new Date().toISOString().slice(0,10) === fechaStr;
+    const activo = selectedDay === fechaStr;
 
     let bg = '#EAF3DE', color = '#4A6A4A', border = '#C0DD97';
-    if (tieneOrden) { bg = '#2D6A2F'; color = '#fff'; border = '#2D6A2F'; }
-    if (esFeriado && !tieneOrden) { bg = '#FFF3E0'; color = '#E65100'; border = '#FFB74D'; }
-    if (hoy) { border = '#C62828'; }
+    if (activo)    { bg = '#1A5220'; color = '#fff'; border = '#1A5220'; }
+    else if (tieneOrden) { bg = '#2D6A2F'; color = '#fff'; border = '#2D6A2F'; }
+    else if (esFeriado)  { bg = '#FFF3E0'; color = '#E65100'; border = '#FFB74D'; }
+    if (hoy && !activo)  border = '#C62828';
 
-    html += `<div onclick="${tieneOrden?`selectDay('${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}')`:''}"
-      style="text-align:center;padding:5px 2px;border-radius:5px;background:${bg};border:2px solid ${border};
-      cursor:${tieneOrden?'pointer':'default'};min-height:36px;position:relative"
-      title="${esFeriado||''}">
+    html += `<div
+      data-fecha="${tieneOrden ? fechaStr : ''}"
+      style="text-align:center;padding:5px 2px;border-radius:5px;background:${bg};
+      border:2px solid ${border};cursor:${tieneOrden?'pointer':'default'};
+      min-height:36px" title="${esFeriado||''}">
       <div style="font-size:11px;font-weight:700;color:${color}">${d}</div>
-      ${tieneIncumpl?`<div style="font-size:8px;color:${tieneOrden?'#FFCDD2':'#C62828'};font-weight:600">⚠${tieneIncumpl}</div>`:''}
-      ${esFeriado&&!tieneOrden?`<div style="font-size:7px;color:#E65100;line-height:1">F</div>`:''}
+      ${(tieneIncumpl && tieneIncumpl > 0) ? `<div style="font-size:8px;color:${tieneOrden?'#FFCDD2':'#C62828'};font-weight:600">⚠${tieneIncumpl}</div>` : ''}
+      ${esFeriado&&!tieneOrden ? `<div style="font-size:7px;color:#E65100">F</div>` : ''}
     </div>`;
   }
 
   html += `</div>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-      <span style="font-size:10px;display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#2D6A2F;border-radius:3px;display:inline-block"></span>Con orden</span>
-      <span style="font-size:10px;display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:3px;display:inline-block"></span>Feriado</span>
-      <span style="font-size:10px;display:flex;align-items:center;gap:4px">⚠ Incumplimientos del día</span>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;font-size:10px">
+      <span style="display:flex;align-items:center;gap:3px"><span style="width:12px;height:12px;background:#2D6A2F;border-radius:3px;display:inline-block"></span>Con orden</span>
+      <span style="display:flex;align-items:center;gap:3px"><span style="width:12px;height:12px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:3px;display:inline-block"></span>Feriado</span>
+      <span>⚠ = incumplimientos del día</span>
     </div>
   </div>`;
 
   return html;
 }
 
+// Attach click handlers after calendar is injected into DOM
+function attachCalendarClicks() {
+  const grid = document.getElementById('cal-grid');
+  if (!grid) return;
+  grid.querySelectorAll('[data-fecha]').forEach(el => {
+    const fecha = el.getAttribute('data-fecha');
+    if (!fecha) return;
+    el.addEventListener('click', () => selectDay(fecha));
+  });
+}
+
+let selectedDay = null;
+
 function selectDay(fecha) {
-  // seleccionar el día en la lista de órdenes
-  const d = fecha.slice(8,10);
+  selectedDay = selectedDay === fecha ? null : fecha;
   const y = fecha.slice(0,4);
   const m = fecha.slice(5,7);
   selectedYear = y;
   selectedMonth = m;
   renderMonthBoxes();
-  renderOrderList();
   updateHomeHeader();
-  setHomeView('ordenes');
-  // Scroll to the day
-  setTimeout(() => {
-    const el = document.querySelector(`[data-fecha="${fecha}"]`);
-    if (el) el.scrollIntoView({behavior:'smooth'});
-  }, 200);
+  // Refrescar la vista activa sin cambiarla
+  if (homeView === 'ordenes') renderOrderList();
+  if (homeView === 'incumpl') renderIncumplPanel();
+  if (homeView === 'totales') renderTotalesPanel();
+}
+
+function selectDayClear() {
+  selectedDay = null;
+  renderOrderList();
 }
 
 // ══════════════════════════════════════════
@@ -1442,6 +1471,7 @@ function renderHome() {
 
   document.getElementById('h-empty').classList.toggle('hidden', orders.length > 0);
   renderYearBoxes();
+  updateHomeHeader();
   renderOrderList();
 }
 
@@ -1469,9 +1499,15 @@ function renderYearBoxes() {
 function selectYear(y) {
   selectedYear = y;
   selectedMonth = null;
+  selectedDay = null;
+  _renderVersion++;
+  showLoadingState();
   renderYearBoxes();
-  renderOrderList();
   updateHomeHeader();
+  setTimeout(() => {
+    renderOrderList();
+    refreshActivePanel();
+  }, 0);
 }
 
 function updateHomeHeader() {
@@ -1490,7 +1526,7 @@ function updateHomeHeader() {
   // Update stats
   document.getElementById('s-ords').textContent = pool.length;
   document.getElementById('s-items').textContent = total.toLocaleString();
-  document.getElementById('s-res').textContent = incumpl;
+  document.getElementById('s-res').textContent = incumpl > 0 ? incumpl : (Object.keys(incumplData).length ? '0' : 'S/D');
 }
 
 function renderMonthBoxes() {
@@ -1523,9 +1559,33 @@ function renderMonthBoxes() {
 function selectMonth(m) {
   const mp = m ? String(m).padStart(2,'0') : null;
   selectedMonth = selectedMonth === mp ? null : mp;
+  selectedDay = null;
+  _renderVersion++;
+  showLoadingState();
   renderMonthBoxes();
-  renderOrderList();
   updateHomeHeader();
+  setTimeout(() => {
+    renderOrderList();
+    refreshActivePanel();
+  }, 0);
+}
+
+function refreshActivePanel() {
+  if (typeof homeView === 'undefined') return;
+  if (homeView === 'totales') renderTotalesPanel();
+  if (homeView === 'incumpl') renderIncumplPanel();
+}
+
+function showLoadingState() {
+  // Limpiar paneles inmediatamente para evitar mostrar datos viejos
+  const ol = document.getElementById('order-list');
+  const tp = document.getElementById('totales-panel');
+  const ip = document.getElementById('incumpl-panel');
+  const cw = document.getElementById('cal-wrap');
+  if (ol && homeView === 'ordenes') ol.innerHTML = '<div style="padding:20px;text-align:center;color:#4A6A4A;font-size:12px">Cargando...</div>';
+  if (tp && homeView === 'totales') tp.innerHTML = '<div style="padding:20px;text-align:center;color:#4A6A4A;font-size:12px">Cargando...</div>';
+  if (ip && homeView === 'incumpl') ip.innerHTML = '<div style="padding:20px;text-align:center;color:#4A6A4A;font-size:12px">Cargando...</div>';
+  if (cw) cw.innerHTML = '';
 }
 
 function renderOrderList() {
@@ -1533,6 +1593,7 @@ function renderOrderList() {
   let pool = orders;
   if (selectedYear)  pool = pool.filter(o => o.fecha.startsWith(selectedYear));
   if (selectedMonth) pool = pool.filter(o => o.fecha.slice(5,7) === selectedMonth);
+  if (selectedDay)   pool = pool.filter(o => o.fecha === selectedDay);
 
   const search = (document.getElementById('h-search')?.value||'').toLowerCase().trim();
   document.getElementById('search-wrap').classList.toggle('hidden', !selectedMonth);
@@ -1556,6 +1617,7 @@ function renderOrderList() {
     document.getElementById('cal-wrap').innerHTML =
       `<div style="font-size:10px;font-weight:700;color:#1A2E1A;letter-spacing:.08em;margin-bottom:4px">CALENDARIO</div>` +
       renderCalendar(selectedYear, selectedMonth);
+    attachCalendarClicks();
   } else if (calendarEl) {
     calendarEl.innerHTML = '';
   }
