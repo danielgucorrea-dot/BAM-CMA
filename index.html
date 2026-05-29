@@ -202,12 +202,33 @@ button{cursor:pointer;font-family:inherit}
     </div>
   </div>
 
+  <!-- BOTONES DE VISTA -->
+  <div style="padding:8px 12px 0;display:flex;gap:6px">
+    <button id="btn-view-ords" onclick="setHomeView('ordenes')"
+      style="flex:1;padding:7px 4px;border-radius:7px;border:2px solid #2D6A2F;background:#2D6A2F;
+      color:#fff;font-size:10px;font-weight:700;cursor:pointer;font-family:'Poppins',sans-serif">
+      📋 ÓRDENES
+    </button>
+    <button id="btn-view-totales" onclick="setHomeView('totales')"
+      style="flex:1;padding:7px 4px;border-radius:7px;border:2px solid #C0DD97;background:#EAF3DE;
+      color:#2D6A2F;font-size:10px;font-weight:700;cursor:pointer;font-family:'Poppins',sans-serif">
+      📊 TOTALES
+    </button>
+    <button id="btn-view-incumpl" onclick="setHomeView('incumpl')"
+      style="flex:1;padding:7px 4px;border-radius:7px;border:2px solid #C0DD97;background:#EAF3DE;
+      color:#C62828;font-size:10px;font-weight:700;cursor:pointer;font-family:'Poppins',sans-serif">
+      ⚠️ INCUMPL.
+    </button>
+  </div>
+
   <!-- SEARCH (solo con mes seleccionado) -->
   <div id="search-wrap" style="padding:8px 12px 0" class="hidden">
     <input class="search-inp" id="h-search" placeholder="Buscar dirección, tipo…" oninput="renderOrderList()">
   </div>
 
   <div id="order-list" style="padding:8px 12px 0"></div>
+  <div id="totales-panel" style="padding:8px 12px 0;display:none"></div>
+  <div id="incumpl-panel" style="padding:8px 12px 0;display:none"></div>
 
   <div id="h-empty" style="text-align:center;padding:50px 20px;color:#1A2E1A" class="hidden">
     <div style="font-size:36px;margin-bottom:12px">📋</div>
@@ -1010,6 +1031,260 @@ function initLeafletMap() {
   }, 200);
 }
 
+
+// ══════════════════════════════════════════
+// HOME VIEW MODES
+// ══════════════════════════════════════════
+let homeView = 'ordenes';
+
+function setHomeView(v) {
+  homeView = v;
+  const btns = {
+    'ordenes':  'btn-view-ords',
+    'totales':  'btn-view-totales',
+    'incumpl':  'btn-view-incumpl'
+  };
+  Object.entries(btns).forEach(([k,id]) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const isActive = k === v;
+    if (k === 'ordenes') {
+      btn.style.background = isActive ? '#2D6A2F' : '#EAF3DE';
+      btn.style.borderColor = isActive ? '#2D6A2F' : '#C0DD97';
+      btn.style.color = isActive ? '#fff' : '#2D6A2F';
+    } else if (k === 'incumpl') {
+      btn.style.background = isActive ? '#C62828' : '#EAF3DE';
+      btn.style.borderColor = isActive ? '#C62828' : '#C0DD97';
+      btn.style.color = isActive ? '#fff' : '#C62828';
+    } else {
+      btn.style.background = isActive ? '#1565C0' : '#EAF3DE';
+      btn.style.borderColor = isActive ? '#1565C0' : '#C0DD97';
+      btn.style.color = isActive ? '#fff' : '#1565C0';
+    }
+  });
+  document.getElementById('order-list').style.display   = v==='ordenes'  ? '' : 'none';
+  document.getElementById('search-wrap').style.display  = v==='ordenes' && selectedMonth ? '' : 'none';
+  document.getElementById('totales-panel').style.display = v==='totales' ? '' : 'none';
+  document.getElementById('incumpl-panel').style.display = v==='incumpl' ? '' : 'none';
+  if (v==='totales') renderTotalesPanel();
+  if (v==='incumpl') renderIncumplPanel();
+  if (v==='ordenes') renderOrderList();
+}
+
+// ── TOTALES ──
+function renderTotalesPanel() {
+  const el = document.getElementById('totales-panel');
+  const MNAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const years = [...new Set(orders.map(o=>o.fecha.slice(0,4)))].sort().reverse();
+  let html = '';
+
+  // Total global
+  const totalOrd = orders.length;
+  const totalItems = orders.reduce((s,o)=>s+o.items.length,0);
+  const totalIncumpl = Object.values(incumplData).reduce((s,d)=>s+(d.total||0),0);
+  html += `<div style="background:#EAF3DE;border:2px solid #2D6A2F;border-radius:10px;padding:14px;margin-bottom:12px">
+    <div style="font-size:11px;font-weight:700;color:#2D6A2F;letter-spacing:.08em;margin-bottom:8px">TOTALES GENERALES</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+      <div><div style="font-size:24px;font-weight:900;color:#1A2E1A">${totalOrd}</div><div style="font-size:9px;color:#2D5A2F">ÓRDENES</div></div>
+      <div><div style="font-size:24px;font-weight:900;color:#1A2E1A">${totalItems.toLocaleString()}</div><div style="font-size:9px;color:#2D5A2F">PEDIDOS</div></div>
+      <div><div style="font-size:24px;font-weight:900;color:#C62828">${totalIncumpl}</div><div style="font-size:9px;color:#C62828">INCUMPL.</div></div>
+    </div>
+  </div>`;
+
+  // Por año
+  years.forEach(y => {
+    const yOrds = orders.filter(o=>o.fecha.startsWith(y));
+    const yItems = yOrds.reduce((s,o)=>s+o.items.length,0);
+    const yIncumpl = calcIncumplForPeriod(parseInt(y),null,null);
+    html += `<div style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;margin-bottom:8px;overflow:hidden">
+      <div style="background:#2D6A2F;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:14px;font-weight:800;color:#fff">${y}</span>
+        <span style="font-size:11px;color:rgba(255,255,255,.8)">${yOrds.length} órdenes · ${yItems.toLocaleString()} pedidos · <span style="color:#FFCDD2">${yIncumpl} incumpl.</span></span>
+      </div>`;
+
+    // Por mes dentro del año
+    const months = [...new Set(yOrds.map(o=>o.fecha.slice(5,7)))].sort();
+    months.forEach(m => {
+      const mOrds = yOrds.filter(o=>o.fecha.slice(5,7)===m);
+      const mItems = mOrds.reduce((s,o)=>s+o.items.length,0);
+      const mIncumpl = calcIncumplForPeriod(parseInt(y),parseInt(m),null);
+      html += `<div style="padding:8px 12px;border-top:1px solid #C0DD97;display:flex;justify-content:space-between;align-items:center;cursor:pointer"
+        onclick="selectYear('${y}');selectMonth('${m}');setHomeView('ordenes')">
+        <span style="font-size:12px;font-weight:600;color:#1A2E1A">${MNAMES[parseInt(m)-1]}</span>
+        <span style="font-size:11px;color:#2D5A2F">${mOrds.length} órd · ${mItems} ped
+          ${mIncumpl?`<span style="color:#C62828;margin-left:6px">⚠️ ${mIncumpl} incumpl.</span>`:'<span style="color:#2D6A2F;margin-left:6px">✓</span>'}
+        </span>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+// ── INCUMPLIMIENTOS DETALLE ──
+function renderIncumplPanel() {
+  const el = document.getElementById('incumpl-panel');
+  const TIPOS_INCUMPL = [
+    {key:'rnh',          label:'RNH',                icon:'📦', color:'#6A1B9A'},
+    {key:'basurales',    label:'Basurales',           icon:'🗑', color:'#B71C1C'},
+    {key:'volcaderos',   label:'Volcaderos',          icon:'⚠️', color:'#E65100'},
+    {key:'faltaRecoleccion', label:'Falta Recolección',icon:'🚛', color:'#F57F17'},
+    {key:'barrido',      label:'Barrido',             icon:'🌿', color:'#2D6A2F'},
+  ];
+
+  // Filtrar por período seleccionado
+  let entries = Object.entries(incumplData);
+  if (selectedYear) entries = entries.filter(([f])=>f.startsWith(selectedYear));
+  if (selectedMonth) entries = entries.filter(([f])=>f.slice(5,7)===String(selectedMonth||'').padStart(2,'0'));
+  entries.sort((a,b)=>a[0].localeCompare(b[0]));
+
+  if (!entries.length) {
+    el.innerHTML = `<div style="text-align:center;padding:40px;color:#4A6A4A;font-size:13px">✅ Sin incumplimientos en el período</div>`;
+    return;
+  }
+
+  // Totales por tipo
+  const totales = {};
+  TIPOS_INCUMPL.forEach(t=>{ totales[t.key]=0; });
+  entries.forEach(([,d])=>TIPOS_INCUMPL.forEach(t=>{ totales[t.key]+=(d[t.key]||0); }));
+
+  const totalGral = Object.values(totales).reduce((s,v)=>s+v,0);
+
+  let html = `<div style="background:#FFEBEE;border:2px solid #C62828;border-radius:10px;padding:12px;margin-bottom:10px">
+    <div style="font-size:11px;font-weight:700;color:#C62828;margin-bottom:8px">TOTALES POR TIPO</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">`;
+  TIPOS_INCUMPL.forEach(t => {
+    html += `<div style="background:#fff;border-radius:6px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:11px;font-weight:600;color:#1A2E1A">${t.icon} ${t.label}</span>
+      <span style="font-size:16px;font-weight:900;color:${t.color}">${totales[t.key]}</span>
+    </div>`;
+  });
+  html += `</div>
+    <div style="margin-top:8px;text-align:right;font-size:12px;font-weight:700;color:#C62828">TOTAL: ${totalGral}</div>
+  </div>`;
+
+  // Detalle por fecha
+  html += `<div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px">DETALLE POR FECHA</div>`;
+  entries.forEach(([fecha, d]) => {
+    const tot = d.total || TIPOS_INCUMPL.reduce((s,t)=>s+(d[t.key]||0),0);
+    if (!tot) return;
+    const [yy,mm,dd] = fecha.split('-');
+    const dateStr = `${dd}/${mm}/${yy}`;
+    html += `<div style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:7px;padding:8px 12px;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:12px;font-weight:700;color:#1A2E1A">${dateStr}</span>
+        <span style="font-size:12px;font-weight:700;color:#C62828">Total: ${tot}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">`;
+    TIPOS_INCUMPL.forEach(t => {
+      if (d[t.key]) html += `<span style="background:#fff;border:1px solid ${t.color}40;border-radius:4px;
+        padding:2px 7px;font-size:10px;font-weight:600;color:${t.color}">${t.icon} ${t.label}: ${d[t.key]}</span>`;
+    });
+    html += `</div></div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+// ── FERIADOS ARGENTINA ──
+const FERIADOS_AR = {
+  '2024-01-01':'Año Nuevo','2024-03-24':'Día de la Memoria','2024-04-02':'Veteranos',
+  '2024-05-01':'Día del Trabajador','2024-05-25':'Revolución de Mayo',
+  '2024-06-20':'Gral. Belgrano','2024-07-09':'Independencia','2024-12-25':'Navidad',
+  '2025-01-01':'Año Nuevo','2025-03-03':'Carnaval','2025-03-04':'Carnaval',
+  '2025-03-24':'Día de la Memoria','2025-04-02':'Veteranos','2025-04-18':'Viernes Santo',
+  '2025-05-01':'Día del Trabajador','2025-05-25':'Revolución de Mayo',
+  '2025-06-20':'Gral. Belgrano','2025-07-09':'Independencia',
+  '2025-10-12':'Diversidad Cultural','2025-11-20':'Soberanía',
+  '2025-12-08':'Inmaculada Concepción','2025-12-25':'Navidad',
+  '2026-01-01':'Año Nuevo','2026-02-16':'Carnaval','2026-02-17':'Carnaval',
+  '2026-03-24':'Día de la Memoria','2026-04-02':'Veteranos','2026-04-03':'Viernes Santo',
+  '2026-05-01':'Día del Trabajador','2026-05-25':'Revolución de Mayo',
+  '2026-06-20':'Gral. Belgrano','2026-07-09':'Independencia',
+  '2026-10-12':'Diversidad Cultural','2026-11-20':'Soberanía',
+  '2026-12-08':'Inmaculada Concepción','2026-12-25':'Navidad',
+};
+
+// ── CALENDARIO MENSUAL ──
+function renderCalendar(year, month) {
+  const y = parseInt(year), m = parseInt(month);
+  const diasConOrden = new Set(
+    orders.filter(o=>o.fecha.startsWith(`${year}-${month}`)).map(o=>parseInt(o.fecha.slice(8,10)))
+  );
+  const diasConIncumpl = {};
+  Object.entries(incumplData).forEach(([f,d])=>{
+    if (f.startsWith(`${year}-${String(month).padStart(2,'0')}`)) {
+      diasConIncumpl[parseInt(f.slice(8,10))] = d.total||0;
+    }
+  });
+
+  const DIAS = ['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'];
+  const diasEnMes = new Date(y, m, 0).getDate();
+  // día de la semana del primer día (0=Dom→6, 1=Lun→0, etc) - Argentina: semana empieza lunes
+  let primerDia = new Date(y, m-1, 1).getDay(); // 0=Dom
+  primerDia = primerDia === 0 ? 6 : primerDia - 1; // convertir a lunes=0
+
+  let html = `<div style="margin-top:8px">
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">
+      ${DIAS.map(d=>`<div style="text-align:center;font-size:9px;font-weight:700;color:#2D6A2F;padding:3px 0">${d}</div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">`;
+
+  // Celdas vacías al inicio
+  for (let i=0; i<primerDia; i++) html += `<div></div>`;
+
+  for (let d=1; d<=diasEnMes; d++) {
+    const fechaStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const tieneOrden = diasConOrden.has(d);
+    const tieneIncumpl = diasConIncumpl[d];
+    const esFeriado = FERIADOS_AR[fechaStr];
+    const hoy = new Date().toISOString().slice(0,10) === fechaStr;
+
+    let bg = '#EAF3DE', color = '#4A6A4A', border = '#C0DD97';
+    if (tieneOrden) { bg = '#2D6A2F'; color = '#fff'; border = '#2D6A2F'; }
+    if (esFeriado && !tieneOrden) { bg = '#FFF3E0'; color = '#E65100'; border = '#FFB74D'; }
+    if (hoy) { border = '#C62828'; }
+
+    html += `<div onclick="${tieneOrden?`selectDay('${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}')`:''}"
+      style="text-align:center;padding:5px 2px;border-radius:5px;background:${bg};border:2px solid ${border};
+      cursor:${tieneOrden?'pointer':'default'};min-height:36px;position:relative"
+      title="${esFeriado||''}">
+      <div style="font-size:11px;font-weight:700;color:${color}">${d}</div>
+      ${tieneIncumpl?`<div style="font-size:8px;color:${tieneOrden?'#FFCDD2':'#C62828'};font-weight:600">⚠${tieneIncumpl}</div>`:''}
+      ${esFeriado&&!tieneOrden?`<div style="font-size:7px;color:#E65100;line-height:1">F</div>`:''}
+    </div>`;
+  }
+
+  html += `</div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <span style="font-size:10px;display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#2D6A2F;border-radius:3px;display:inline-block"></span>Con orden</span>
+      <span style="font-size:10px;display:flex;align-items:center;gap:4px"><span style="width:12px;height:12px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:3px;display:inline-block"></span>Feriado</span>
+      <span style="font-size:10px;display:flex;align-items:center;gap:4px">⚠ Incumplimientos del día</span>
+    </div>
+  </div>`;
+
+  return html;
+}
+
+function selectDay(fecha) {
+  // seleccionar el día en la lista de órdenes
+  const d = fecha.slice(8,10);
+  const y = fecha.slice(0,4);
+  const m = fecha.slice(5,7);
+  selectedYear = y;
+  selectedMonth = m;
+  renderMonthBoxes();
+  renderOrderList();
+  updateHomeHeader();
+  setHomeView('ordenes');
+  // Scroll to the day
+  setTimeout(() => {
+    const el = document.querySelector(`[data-fecha="${fecha}"]`);
+    if (el) el.scrollIntoView({behavior:'smooth'});
+  }, 200);
+}
+
 // ══════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════
@@ -1124,8 +1399,8 @@ function calcIncumplForPeriod(year, month, day) {
   Object.values(incumplData).forEach(d => {
     if (d.suspendida) return;
     if (year  && !d.fecha.startsWith(year))            return;
-    if (month && d.fecha.slice(5,7) !== month.padStart(2,'0')) return;
-    if (day   && d.fecha.slice(8,10) !== day.padStart(2,'0'))  return;
+    if (month && d.fecha.slice(5,7) !== String(month).padStart(2,'0')) return;
+    if (day   && d.fecha.slice(8,10) !== String(day).padStart(2,'0'))  return;
     total += d.total || 0;
   });
   return total;
@@ -1150,6 +1425,7 @@ function renderHome() {
     globalPct = calcCumplPct(total, globalIncumpl);
   }
 
+  // Header: total global siempre
   document.getElementById('h-sub').textContent =
     orders.length ? `${orders.length} órdenes · ${total.toLocaleString()} pedidos` : 'Sin órdenes cargadas';
 
@@ -1195,6 +1471,26 @@ function selectYear(y) {
   selectedMonth = null;
   renderYearBoxes();
   renderOrderList();
+  updateHomeHeader();
+}
+
+function updateHomeHeader() {
+  const MNAMES = {null:'Todos los años','undefined':'Todos los años','2024':'2024','2025':'2025','2026':'2026'};
+  let pool = orders;
+  if (selectedYear) pool = pool.filter(o=>o.fecha.startsWith(selectedYear));
+  if (selectedMonth) pool = pool.filter(o=>o.fecha.slice(5,7)===selectedMonth);
+  const total = pool.reduce((s,o)=>s+o.items.length,0);
+  const incumpl = calcIncumplForPeriod(selectedYear?parseInt(selectedYear):null,
+    selectedMonth?parseInt(selectedMonth):null, null);
+  const label = selectedMonth
+    ? `${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(selectedMonth)-1]} ${selectedYear}`
+    : selectedYear ? selectedYear : 'Todos los períodos';
+  document.getElementById('h-sub').textContent =
+    pool.length ? `${label} · ${pool.length} órdenes · ${total.toLocaleString()} pedidos` : 'Sin órdenes en este período';
+  // Update stats
+  document.getElementById('s-ords').textContent = pool.length;
+  document.getElementById('s-items').textContent = total.toLocaleString();
+  document.getElementById('s-res').textContent = incumpl;
 }
 
 function renderMonthBoxes() {
@@ -1225,9 +1521,11 @@ function renderMonthBoxes() {
 }
 
 function selectMonth(m) {
-  selectedMonth = selectedMonth === m ? null : m;
+  const mp = m ? String(m).padStart(2,'0') : null;
+  selectedMonth = selectedMonth === mp ? null : mp;
   renderMonthBoxes();
   renderOrderList();
+  updateHomeHeader();
 }
 
 function renderOrderList() {
@@ -1244,6 +1542,22 @@ function renderOrderList() {
       o.numero.includes(search) ||
       o.items.some(i => i.ubic.toLowerCase().includes(search) || i.tipo.toLowerCase().includes(search))
     );
+  }
+
+  // Calendar view when month selected
+  const calendarEl = document.getElementById('cal-wrap');
+  if (selectedMonth && selectedYear) {
+    if (!calendarEl) {
+      const div = document.createElement('div');
+      div.id = 'cal-wrap';
+      div.style.padding = '4px 12px 0';
+      document.getElementById('order-list').before(div);
+    }
+    document.getElementById('cal-wrap').innerHTML =
+      `<div style="font-size:10px;font-weight:700;color:#1A2E1A;letter-spacing:.08em;margin-bottom:4px">CALENDARIO</div>` +
+      renderCalendar(selectedYear, selectedMonth);
+  } else if (calendarEl) {
+    calendarEl.innerHTML = '';
   }
 
   // Stats del período
