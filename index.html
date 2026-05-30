@@ -963,7 +963,11 @@ function initLeafletMap() {
         attribution: '© OpenStreetMap', maxZoom: 19, crossOrigin: true
       }).addTo(leafletMap);
     } else {
-      leafletMap.eachLayer(l => { if (!(l instanceof L.TileLayer)) leafletMap.removeLayer(l); });
+      leafletMap.eachLayer(function(l) {
+        if (l instanceof L.TileLayer) return;
+        if (pvLayer && l === pvLayer) return;
+        leafletMap.removeLayer(l);
+      });
     }
 
     // ── Línea divisoria: Benjamín Aráoz / 24 de Septiembre / Mate de Luna ──
@@ -3032,27 +3036,51 @@ loadAll().then(()=>{ if(!orders.length) showView('analytics'); });
 
   <!-- Panel CRUCE -->
   <div id="mp-panel-cruce" style="display:none">
+    <div style="padding:6px 12px 0">
+      <div style="background:#1565C0;border-radius:8px;padding:8px 12px;font-size:10px;color:#fff;line-height:1.6">
+        🗺️ <b>En el mapa:</b> 🔴 Basurales activos &nbsp;·&nbsp; ♻️ Puntos verdes<br>⭕ = radio de 500m (zona de influencia de cada PV)
+      </div>
+    </div>
     <div style="padding:8px 12px 0">
-      <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.05em">COBERTURA DE BASURALES POR PUNTOS VERDES</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px">
-        <div style="background:#EAF3DE;border:2px solid #2D6A2F;border-radius:8px;padding:7px;text-align:center">
-          <div style="font-size:18px;font-weight:900;color:#2D6A2F" id="cr-sem-v">—</div>
-          <div style="font-size:9px;font-weight:700">🟢 &lt;500m</div>
+      <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.05em">¿QUÉ BASURALES TIENEN UN PUNTO VERDE CERCA?</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+        <div style="background:#E8F5E9;border:2px solid #2D6A2F;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:900;color:#2D6A2F" id="cr-sem-v">…</div>
+          <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-top:2px">Cubiertos</div>
+          <div style="font-size:9px;color:#4A6A4A">PV a &lt;500m</div>
         </div>
-        <div style="background:#EAF3DE;border:2px solid #FF8F00;border-radius:8px;padding:7px;text-align:center">
-          <div style="font-size:18px;font-weight:900;color:#FF8F00" id="cr-sem-a">—</div>
-          <div style="font-size:9px;font-weight:700">🟡 &lt;1km</div>
+        <div style="background:#FFF8E1;border:2px solid #FF8F00;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:900;color:#FF8F00" id="cr-sem-a">…</div>
+          <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-top:2px">Parciales</div>
+          <div style="font-size:9px;color:#4A6A4A">PV entre 500m–1km</div>
         </div>
-        <div style="background:#EAF3DE;border:2px solid #D32F2F;border-radius:8px;padding:7px;text-align:center">
-          <div style="font-size:18px;font-weight:900;color:#D32F2F" id="cr-sem-r">—</div>
-          <div style="font-size:9px;font-weight:700">🔴 Sin PV</div>
+        <div style="background:#FFEBEE;border:2px solid #D32F2F;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:900;color:#D32F2F" id="cr-sem-r">…</div>
+          <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-top:2px">Sin cobertura</div>
+          <div style="font-size:9px;color:#4A6A4A">Ningún PV &lt;1km</div>
         </div>
       </div>
-      <div style="font-size:10px;color:#4A6A4A;margin-top:4px" id="cr-sem-note">Calculando en background…</div>
+      <div style="font-size:10px;color:#4A6A4A;margin-top:5px" id="cr-sem-note">Calculando…</div>
+    </div>
+    <div style="padding:5px 12px 0">
+      <div style="background:#ddd;border-radius:99px;height:12px;overflow:hidden;display:flex">
+        <div id="cr-bar-v" style="height:100%;background:#2D6A2F;transition:width .6s;width:0%"></div>
+        <div id="cr-bar-a" style="height:100%;background:#FF8F00;transition:width .6s;width:0%"></div>
+        <div id="cr-bar-r" style="height:100%;background:#D32F2F;transition:width .6s;width:0%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:3px">
+        <span style="font-size:9px;color:#2D6A2F;font-weight:700" id="cr-pct-v">—</span>
+        <span style="font-size:9px;color:#FF8F00;font-weight:700" id="cr-pct-a">—</span>
+        <span style="font-size:9px;color:#D32F2F;font-weight:700" id="cr-pct-r">—</span>
+      </div>
     </div>
     <div style="padding:6px 12px 0">
-      <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:4px;letter-spacing:.05em">TOP BASURALES CON ÓRDENES CERCA DE PV</div>
-      <div id="cr-ord-list" style="font-size:11px;color:#4A6A4A">Cargando…</div>
+      <div style="font-size:11px;font-weight:700;color:#D32F2F;margin-bottom:4px;letter-spacing:.05em">🔴 BASURALES SIN PUNTO VERDE CERCANO</div>
+      <div id="cr-sin-pv" style="font-size:10px;color:#4A6A4A">Calculando…</div>
+    </div>
+    <div style="padding:6px 12px 8px">
+      <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:4px;letter-spacing:.05em">📋 BASURALES CON MÁS ÓRDENES Y PV PRÓXIMO</div>
+      <div id="cr-ord-list" style="font-size:11px;color:#4A6A4A">Calculando…</div>
     </div>
   </div>
 
@@ -3289,30 +3317,47 @@ function pvMakeWorker() {
     '    });',
     '  });});',
     '  var top=Object.keys(ck).map(function(k){return{n:k,c:ck[k]};}).sort(function(a,b){return b.c-a.c;}).slice(0,5);',
-    '  self.postMessage({v:v,a:a,r:r,top:top,tot:bas.length});',
+    '  var sinPv=bas.filter(function(b){',
+    '    var bl=parseFloat(b.lat),bg=parseFloat(b.lng);if(isNaN(bl))return false;',
+    '    var cands=nb(bl,bg,pv,gr,C,R10),mn=Infinity;',
+    '    cands.forEach(function(p){var dd=d(bl,bg,p.a,p.g);if(dd<mn)mn=dd;});',
+    '    if(mn===Infinity)pv.forEach(function(p){var dd=d(bl,bg,p.a,p.g);if(dd<mn)mn=dd;});',
+    '    return mn>1000;',
+    '  }).map(function(b){return b.nombre||"Sin nombre";});',
+    '  self.postMessage({v:v,a:a,r:r,top:top,tot:bas.length,sinPv:sinPv});',
     '};'
   ].join('\n');
   var w = new Worker(URL.createObjectURL(new Blob([src],{type:'application/javascript'})));
   w.onmessage = function(e) {
-    var d = e.data;
-    var sv = document.getElementById('cr-sem-v');
-    var sa = document.getElementById('cr-sem-a');
-    var sr = document.getElementById('cr-sem-r');
-    var sn = document.getElementById('cr-sem-note');
-    var ol = document.getElementById('cr-ord-list');
-    if (sv) sv.textContent = d.v;
-    if (sa) sa.textContent = d.a;
-    if (sr) sr.textContent = d.r;
-    if (sn) sn.textContent = d.tot + ' basurales analizados';
-    if (ol) {
-      ol.innerHTML = d.top.length
-        ? d.top.map(function(x){
-            return '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #C0DD97">'
-              +'<span style="font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:6px">'+x.n+'</span>'
-              +'<b style="color:#D32F2F;font-size:11px;flex-shrink:0">'+x.c+'×</b></div>';
-          }).join('')
-        : '<span style="color:#4A6A4A">Sin coincidencias con órdenes cargadas.</span>';
-    }
+    var d=e.data, tot=d.tot||1;
+    var g=function(id){return document.getElementById(id);};
+    if(g('cr-sem-v')) g('cr-sem-v').textContent=d.v;
+    if(g('cr-sem-a')) g('cr-sem-a').textContent=d.a;
+    if(g('cr-sem-r')) g('cr-sem-r').textContent=d.r;
+    if(g('cr-sem-note')) g('cr-sem-note').textContent=tot+' basurales analizados';
+    var pv=Math.round(d.v/tot*100), pa=Math.round(d.a/tot*100), pr=Math.max(100-pv-pa,0);
+    if(g('cr-bar-v')) g('cr-bar-v').style.width=pv+'%';
+    if(g('cr-bar-a')) g('cr-bar-a').style.width=pa+'%';
+    if(g('cr-bar-r')) g('cr-bar-r').style.width=pr+'%';
+    if(g('cr-pct-v')) g('cr-pct-v').textContent='Cubiertos '+pv+'%';
+    if(g('cr-pct-a')) g('cr-pct-a').textContent='Parciales '+pa+'%';
+    if(g('cr-pct-r')) g('cr-pct-r').textContent='Sin cobertura '+pr+'%';
+    if(g('cr-sin-pv')) g('cr-sin-pv').innerHTML = d.sinPv&&d.sinPv.length
+      ? d.sinPv.slice(0,8).map(function(x){
+          return '<div style="display:flex;align-items:center;padding:4px 0;border-bottom:1px solid #FFCDD2">'
+            +'<span style="color:#D32F2F;margin-right:6px">🔴</span>'
+            +'<span style="font-size:10px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x+'</span></div>';
+        }).join('')+(d.sinPv.length>8?'<div style="font-size:9px;color:#888;padding-top:3px">...y '+(d.sinPv.length-8)+' más</div>':'')
+      : '<span style="color:#2D6A2F;font-size:10px">✅ Todos tienen al menos un PV a menos de 1km</span>';
+    if(g('cr-ord-list')) g('cr-ord-list').innerHTML = d.top&&d.top.length
+      ? d.top.map(function(x){
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #C0DD97">'
+            +'<div style="flex:1;overflow:hidden"><div style="font-size:10px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x.n+'</div>'
+            +'<div style="font-size:9px;color:#2D6A2F">tiene PV a &lt;500m</div></div>'
+            +'<div style="text-align:right;margin-left:8px;flex-shrink:0"><b style="color:#D32F2F;font-size:13px">'+x.c+'</b>'
+            +'<div style="font-size:8px;color:#888">órdenes</div></div></div>';
+        }).join('')
+      : '<span style="color:#4A6A4A;font-size:10px">Sin coincidencias.</span>';
   };
   w.onerror = function(e){ console.error('PV Worker:', e.message); };
   return w;
@@ -3376,7 +3421,7 @@ async function setMapaTab(tab) {
     ['mapa-totales','mapa-card-norte','mapa-card-sur'].forEach(function(id){
       var el = document.getElementById(id); if(el) el.closest && el.parentElement ? el.parentElement.style.display='' : null;
     });
-    // Repintar mapa basurales
+    if (pvLayer) { pvLayer.clearLayers(); }
     setMapaMode(mapaMode || 'activos');
     return;
   }
@@ -3452,24 +3497,36 @@ function pvRenderLayer(data) {
 
 // ── Render basurales (en tab cruce) ───────
 function pvRenderBasurales() {
-  if (!leafletMap || !(typeof mapData !== 'undefined')) return;
-  mapData.forEach(function(p){
-    var lat=parseFloat(p.lat), lng=parseFloat(p.lng);
-    if(isNaN(lat)) return;
-    L.circleMarker([lat,lng],{radius:7,fillColor:'#D32F2F',color:'#fff',weight:1.5,fillOpacity:.85})
-      .bindPopup('<b>🔴 '+( p.nombre||'Basural')+'</b>')
-      .addTo(pvLayer);
-  });
+  if (!leafletMap || typeof mapData === 'undefined' || !pvLayer) return;
+  var i=0, data=mapData, CHUNK=60;
+  function go(){
+    var end=Math.min(i+CHUNK,data.length);
+    for(;i<end;i++){
+      var p=data[i],lat=parseFloat(p.lat),lng=parseFloat(p.lng);
+      if(isNaN(lat))continue;
+      L.circleMarker([lat,lng],{radius:7,fillColor:'#D32F2F',color:'#fff',weight:1.5,fillOpacity:.85})
+        .bindPopup('<b>🔴 '+(p.nombre||'Basural')+'</b>')
+        .addTo(pvLayer);
+    }
+    if(i<data.length) setTimeout(go,0);
+  }
+  go();
 }
 
 // ── Render radios 500m ────────────────────
 function pvRenderRadios(data) {
-  if (!leafletMap) return;
-  var subset = pvFiltro === 'TODOS' ? data : data.filter(function(p){ return p.t === pvFiltro; });
-  subset.forEach(function(p){
-    L.circle([p.a,p.g],{radius:500,fillColor:PV_COLORS[p.t]||'#2D6A2F',
-      fillOpacity:.07,color:PV_COLORS[p.t]||'#2D6A2F',weight:1,opacity:.25}).addTo(pvLayer);
-  });
+  if (!leafletMap || !pvLayer) return;
+  var subset = pvFiltro==='TODOS' ? data : data.filter(function(p){return p.t===pvFiltro;});
+  var i=0, CHUNK=80;
+  function go(){
+    var end=Math.min(i+CHUNK,subset.length);
+    for(;i<end;i++){
+      var p=subset[i];
+      L.circle([p.a,p.g],{radius:500,fill:false,color:PV_COLORS[p.t]||'#2D6A2F',weight:1,opacity:.18}).addTo(pvLayer);
+    }
+    if(i<subset.length) setTimeout(go,0);
+  }
+  go();
 }
 
 // ── Filtro tipo PV ────────────────────────
