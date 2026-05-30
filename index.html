@@ -3083,7 +3083,7 @@ loadAll().then(()=>{ if(!orders.length) showView('analytics'); });
       <div id="cr-sin-pv" style="font-size:10px;color:#4A6A4A">Calculando…</div>
     </div>
     <div style="padding:6px 12px 8px">
-      <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:4px;letter-spacing:.05em">📋 BASURALES CON MÁS ÓRDENES Y PV PRÓXIMO</div>
+      <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:4px;letter-spacing:.05em">📋 BASURALES CON MÁS REGISTROS EN ÓRDENES</div>
       <div id="cr-ord-list" style="font-size:11px;color:#4A6A4A">Calculando…</div>
     </div>
   </div>
@@ -3310,17 +3310,7 @@ function pvMakeWorker() {
     '    if(mn===Infinity)pv.forEach(function(p){var dd=d(bl,bg,p.a,p.g);if(dd<mn)mn=dd;});',
     '    if(mn<=500){v++;cp.push(b);}else if(mn<=1000)a++;else r++;',
     '  });',
-    '  var ck={};',
-    '  ords.forEach(function(o){(o.items||[]).forEach(function(it){',
-    '    if(it.tipo!=="Basural"&&it.tipo!=="Volcadero")return;',
-    '    var ub=(it.ubic||"").toLowerCase();',
-    '    cp.forEach(function(b){',
-    '      var bn=(b.nombre||"").toLowerCase();',
-    '      var wB=bn.split(/\\s+/).filter(function(w){return w.length>3;});',
-    '      if(wB.some(function(w){return ub.indexOf(w)>=0;})){ck[b.nombre]=(ck[b.nombre]||0)+1;}',
-    '    });',
-    '  });});',
-    '  var top=Object.keys(ck).map(function(k){return{n:k,c:ck[k]};}).sort(function(a,b){return b.c-a.c;}).slice(0,5);',
+    '  var top=[];',
     '  var sinPv=bas.filter(function(b){',
     '    var bl=parseFloat(b.lat),bg=parseFloat(b.lng);if(isNaN(bl))return false;',
     '    var cands=nb(bl,bg,pv,gr,C,R10),mn=Infinity;',
@@ -3328,7 +3318,7 @@ function pvMakeWorker() {
     '    if(mn===Infinity)pv.forEach(function(p){var dd=d(bl,bg,p.a,p.g);if(dd<mn)mn=dd;});',
     '    return mn>1000;',
     '  }).map(function(b){return b.nombre||"Sin nombre";});',
-    '  self.postMessage({v:v,a:a,r:r,top:top,tot:bas.length,sinPv:sinPv});',
+    '  self.postMessage({v:v,a:a,r:r,tot:bas.length,sinPv:sinPv});',
     '};'
   ].join('\n');
   var w = new Worker(URL.createObjectURL(new Blob([src],{type:'application/javascript'})));
@@ -3353,15 +3343,25 @@ function pvMakeWorker() {
             +'<span style="font-size:10px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x+'</span></div>';
         }).join('')+(d.sinPv.length>8?'<div style="font-size:9px;color:#888;padding-top:3px">...y '+(d.sinPv.length-8)+' más</div>':'')
       : '<span style="color:#2D6A2F;font-size:10px">✅ Todos tienen al menos un PV a menos de 1km</span>';
-    if(g('cr-ord-list')) g('cr-ord-list').innerHTML = d.top&&d.top.length
-      ? d.top.map(function(x){
-          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #C0DD97">'
-            +'<div style="flex:1;overflow:hidden"><div style="font-size:10px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x.n+'</div>'
-            +'<div style="font-size:9px;color:#2D6A2F">tiene PV a &lt;500m</div></div>'
-            +'<div style="text-align:right;margin-left:8px;flex-shrink:0"><b style="color:#D32F2F;font-size:13px">'+x.c+'</b>'
-            +'<div style="font-size:8px;color:#888">órdenes</div></div></div>';
-        }).join('')
-      : '<span style="color:#4A6A4A;font-size:10px">Sin coincidencias.</span>';
+    // Top: usar _mapaFreqMap del sistema (ya calculado correctamente)
+    var fqMap = window._mapaFreqMap || {};
+    var ol = g('cr-ord-list');
+    if(ol) {
+      var topLocal = Object.keys(fqMap)
+        .map(function(k){return{n:k,c:fqMap[k]};})
+        .filter(function(x){return x.c>0;})
+        .sort(function(a,b){return b.c-a.c;})
+        .slice(0,5);
+      ol.innerHTML = topLocal.length
+        ? topLocal.map(function(x){
+            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #C0DD97">'
+              +'<div style="flex:1;overflow:hidden"><div style="font-size:10px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x.n+'</div>'
+              +'<div style="font-size:9px;color:#2D6A2F">basural con más órdenes registradas</div></div>'
+              +'<div style="text-align:right;margin-left:8px;flex-shrink:0"><b style="color:#D32F2F;font-size:13px">'+x.c+'</b>'
+              +'<div style="font-size:8px;color:#888">items</div></div></div>';
+          }).join('')
+        : '<span style="color:#4A6A4A;font-size:10px">Cargá un backup primero para ver órdenes.</span>';
+    }
   };
   w.onerror = function(e){ console.error('PV Worker:', e.message); };
   return w;
@@ -3560,7 +3560,6 @@ function pvCalcDensidad(data) {
 // ── Worker semaforización ─────────────────
 function pvDispatchWorker(data) {
   var bas  = (typeof mapData  !== 'undefined') ? mapData  : [];
-  var ords = (typeof orders   !== 'undefined') ? orders   : [];
   var sv = document.getElementById('cr-sem-v');
   var sa = document.getElementById('cr-sem-a');
   var sr = document.getElementById('cr-sem-r');
@@ -3577,7 +3576,7 @@ function pvDispatchWorker(data) {
   if (sr) sr.textContent = '…';
   if (sn) sn.textContent = 'Calculando en background…';
   if (!pvWorker) pvWorker = pvMakeWorker();
-  pvWorker.postMessage({pv: data, bas: bas, ords: ords});
+  pvWorker.postMessage({pv: data, bas: bas});
 }
 
 // ── Init tabs al entrar al MAPA ──────────
