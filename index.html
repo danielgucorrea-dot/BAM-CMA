@@ -47,7 +47,7 @@ button{cursor:pointer;font-family:inherit}
 
 /* ── BOTTOM NAV ── */
 .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid #DCE8DC;display:flex;z-index:200;box-shadow:0 -2px 8px rgba(45,106,47,.08)}
-.nav-btn{flex:1;padding:10px 0 8px;background:none;border:none;color:#2D5A2F;font-size:7.5px;font-family:'Poppins',sans-serif;letter-spacing:.04em;display:flex;flex-direction:column;align-items:center;gap:2px;transition:color .2s}
+.nav-btn{flex:1;padding:10px 0 8px;background:none;border:none;color:#2D5A2F;font-size:9px;font-family:'Poppins',sans-serif;letter-spacing:.07em;display:flex;flex-direction:column;align-items:center;gap:2px;transition:color .2s}
 .nav-btn.active{color:#2D6A2F;font-weight:600}
 .nav-icon{font-size:18px}
 
@@ -325,7 +325,6 @@ button{cursor:pointer;font-family:inherit}
   <button class="nav-btn active" id="nav-analytics" onclick="showView('analytics')"><span class="nav-icon">📊</span>ANÁLISIS</button>
   <button class="nav-btn" id="nav-cruce" onclick="showView('cruce')"><span class="nav-icon">🔀</span>CRUCE</button>
   <button class="nav-btn" id="nav-mapa" onclick="showView('mapa')"><span class="nav-icon">🗺️</span>MAPA</button>
-  <button class="nav-btn" id="nav-transforma" onclick="showView('transforma')"><span class="nav-icon">♻️</span>TRANSFORMÁ</button>
   <button class="nav-btn" id="nav-import" onclick="showView('import')"><span class="nav-icon">⬆</span>IMPORT</button>
 </nav>
 
@@ -959,7 +958,7 @@ function initLeafletMap() {
       return;
     }
     if (!leafletMap) {
-      leafletMap = L.map('leaflet-map', {zoomControl:true}).setView([-26.834, -65.215], 13);
+      leafletMap = L.map('leaflet-map', {zoomControl:true, preferCanvas:true}).setView([-26.834, -65.215], 13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap', maxZoom: 19, crossOrigin: true
       }).addTo(leafletMap);
@@ -1317,11 +1316,11 @@ function selectDayClear() {
 // NAVIGATION
 // ══════════════════════════════════════════
 function showView(name) {
-  ['home','order','analytics','import','cruce','mapa','transforma'].forEach(v => {
+  ['home','order','analytics','import','cruce','mapa'].forEach(v => {
     const el = document.getElementById('v-'+v);
     if (el) el.classList.toggle('hidden', v !== name);
   });
-  ['home','analytics','import','cruce','mapa','transforma'].forEach(v => {
+  ['home','analytics','import','cruce','mapa'].forEach(v => {
     const b = document.getElementById('nav-'+v);
     if (b) b.classList.toggle('active', v === name);
   });
@@ -1335,7 +1334,6 @@ function showView(name) {
   if (name === 'import') renderImportSummary();
   if (name === 'cruce') renderCruceView();
   if (name === 'mapa') renderMapaView();
-  if (name === 'transforma') renderTransformaView();
 }
 
 function goBack() { showView('home'); }
@@ -2973,27 +2971,89 @@ loadAll().then(()=>{ if(!orders.length) showView('analytics'); });
 <div id="v-mapa" class="hidden">
   <div class="hdr">
     <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.1em;margin-bottom:2px">SECRETARÍA DE AMBIENTE · SMT</div>
-    <div class="hdr-title">Mapa de Basurales</div>
+    <div class="hdr-title" id="mapa-hdr-title">Mapa de Basurales</div>
     <div class="hdr-sub" id="mapa-sub">(Última actualización: Abril 2026)</div>
   </div>
 
-  <!-- Toggle activos/inactivos -->
-  <div style="padding:12px 14px 0;display:flex;gap:6px">
-    <button onclick="setMapaMode('activos')" id="btn-activos"
-      style="flex:1;padding:8px;border-radius:8px;border:2px solid #D32F2F;
-      background:#D32F2F;color:#fff;font-weight:700;font-size:12px;cursor:pointer;font-family:'Poppins',sans-serif">
-      🔴 ACTIVOS
+  <!-- Tab selector: BASURALES / PUNTOS VERDES / CRUCE -->
+  <div style="padding:10px 12px 0;display:flex;gap:5px">
+    <button onclick="setMapaTab('basurales')" id="tab-basurales"
+      style="flex:1;padding:7px 2px;border-radius:8px;border:2px solid #D32F2F;background:#D32F2F;color:#fff;font-weight:700;font-size:10px;cursor:pointer;font-family:'Poppins',sans-serif;transition:.15s">
+      🔴 Basurales
     </button>
-    <button onclick="setMapaMode('inactivos')" id="btn-inactivos"
-      style="flex:1;padding:8px;border-radius:8px;border:2px solid #C0DD97;
-      background:#EAF3DE;color:#2D6A2F;font-weight:700;font-size:12px;cursor:pointer;font-family:'Poppins',sans-serif">
-      🟢 INACTIVOS
+    <button onclick="setMapaTab('pv')" id="tab-pv"
+      style="flex:1;padding:7px 2px;border-radius:8px;border:2px solid #2D6A2F;background:#EAF3DE;color:#2D6A2F;font-weight:700;font-size:10px;cursor:pointer;font-family:'Poppins',sans-serif;transition:.15s">
+      ♻️ Puntos Verdes
     </button>
-    <button onclick="setMapaMode('total')" id="btn-total"
-      style="flex:1;padding:8px;border-radius:8px;border:2px solid #C0DD97;
-      background:#EAF3DE;color:#1A2E1A;font-weight:700;font-size:12px;cursor:pointer;font-family:'Poppins',sans-serif">
-      📊 TOTAL
+    <button onclick="setMapaTab('cruce')" id="tab-cruce"
+      style="flex:1;padding:7px 2px;border-radius:8px;border:2px solid #1565C0;background:#EAF3DE;color:#1565C0;font-weight:700;font-size:10px;cursor:pointer;font-family:'Poppins',sans-serif;transition:.15s">
+      🔀 Cruce
     </button>
+  </div>
+
+  <!-- Panel BASURALES -->
+  <div id="mp-panel-basurales">
+    <!-- Sub-toggle activos/inactivos/total -->
+    <div style="padding:8px 12px 0;display:flex;gap:5px">
+      <button onclick="setMapaMode('activos')" id="btn-activos"
+        style="flex:1;padding:7px;border-radius:8px;border:2px solid #D32F2F;background:#D32F2F;color:#fff;font-weight:700;font-size:11px;cursor:pointer;font-family:'Poppins',sans-serif">
+        🔴 ACTIVOS
+      </button>
+      <button onclick="setMapaMode('inactivos')" id="btn-inactivos"
+        style="flex:1;padding:7px;border-radius:8px;border:2px solid #C0DD97;background:#EAF3DE;color:#2D6A2F;font-weight:700;font-size:11px;cursor:pointer;font-family:'Poppins',sans-serif">
+        🟢 INACTIVOS
+      </button>
+      <button onclick="setMapaMode('total')" id="btn-total"
+        style="flex:1;padding:7px;border-radius:8px;border:2px solid #C0DD97;background:#EAF3DE;color:#1A2E1A;font-weight:700;font-size:11px;cursor:pointer;font-family:'Poppins',sans-serif">
+        📊 TOTAL
+      </button>
+    </div>
+  </div>
+
+  <!-- Panel PUNTOS VERDES -->
+  <div id="mp-panel-pv" style="display:none">
+    <div style="padding:8px 12px 0;display:flex;gap:5px;flex-wrap:wrap" id="pv-chips">
+      <button class="chip active" onclick="pvSetFiltro('TODOS',this)">TODOS (356)</button>
+      <button class="chip" onclick="pvSetFiltro('BOTELLONES',this)">🔵 Botellones (157)</button>
+      <button class="chip" onclick="pvSetFiltro('BOLSONES',this)">🟢 Bolsones (83)</button>
+      <button class="chip" onclick="pvSetFiltro('PV_FIJOS',this)">🟡 PV Fijos (60)</button>
+      <button class="chip" onclick="pvSetFiltro('TULIPANES',this)">🌷 Tulipanes (56)</button>
+    </div>
+    <!-- KPIs PV -->
+    <div style="padding:6px 12px 0">
+      <div class="stats-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
+        <div class="stat"><div class="stat-val" id="pv-total" style="color:#2D6A2F">356</div><div class="stat-lbl">TOTAL</div></div>
+        <div class="stat"><div class="stat-val" id="pv-norte" style="color:#2D6A2F">—</div><div class="stat-lbl">NORTE</div></div>
+        <div class="stat"><div class="stat-val" id="pv-sur" style="color:#558B2F">—</div><div class="stat-lbl">SUR</div></div>
+        <div class="stat"><div class="stat-val" id="pv-estado" style="color:#1565C0;font-size:11px">OK</div><div class="stat-lbl">CARGA</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel CRUCE -->
+  <div id="mp-panel-cruce" style="display:none">
+    <div style="padding:8px 12px 0">
+      <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.05em">COBERTURA DE BASURALES POR PUNTOS VERDES</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px">
+        <div style="background:#EAF3DE;border:2px solid #2D6A2F;border-radius:8px;padding:7px;text-align:center">
+          <div style="font-size:18px;font-weight:900;color:#2D6A2F" id="cr-sem-v">—</div>
+          <div style="font-size:9px;font-weight:700">🟢 &lt;500m</div>
+        </div>
+        <div style="background:#EAF3DE;border:2px solid #FF8F00;border-radius:8px;padding:7px;text-align:center">
+          <div style="font-size:18px;font-weight:900;color:#FF8F00" id="cr-sem-a">—</div>
+          <div style="font-size:9px;font-weight:700">🟡 &lt;1km</div>
+        </div>
+        <div style="background:#EAF3DE;border:2px solid #D32F2F;border-radius:8px;padding:7px;text-align:center">
+          <div style="font-size:18px;font-weight:900;color:#D32F2F" id="cr-sem-r">—</div>
+          <div style="font-size:9px;font-weight:700">🔴 Sin PV</div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#4A6A4A;margin-top:4px" id="cr-sem-note">Calculando en background…</div>
+    </div>
+    <div style="padding:6px 12px 0">
+      <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:4px;letter-spacing:.05em">TOP BASURALES CON ÓRDENES CERCA DE PV</div>
+      <div id="cr-ord-list" style="font-size:11px;color:#4A6A4A">Cargando…</div>
+    </div>
   </div>
 
   <!-- Totales generales -->
@@ -3050,13 +3110,13 @@ loadAll().then(()=>{ if(!orders.length) showView('analytics'); });
     </div>
   </div>
 
-  <!-- Mapa Leaflet -->
-  <div style="padding:12px 14px 4px">
-    <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px">
-      MAPA — 🔴 Activos · 🟢 Inactivos · línea divisoria de zonas
+  <!-- Leyenda dinámica -->
+  <div style="padding:8px 14px 4px">
+    <div style="font-size:10px;font-weight:700;color:#1A2E1A" id="mapa-leyenda">
+      🔴 Activos · 🟢 Inactivos · línea = Zona Norte/Sur
     </div>
   </div>
-  <div id="leaflet-map" style="height:420px;width:100%;display:block;background:#e8f0e8"></div>
+  <div id="leaflet-map" style="height:400px;width:100%;display:block;background:#e8f0e8"></div>
 </div>
 
 </div><!-- end v-mapa -->
@@ -3173,396 +3233,311 @@ if (sessionStorage.getItem('auth') === '1') {
 }
 </script>
 
-<!-- ══ TRANSFORMÁ VIEW ══ -->
-<div id="v-transforma" class="hidden">
-  <div class="hdr">
-    <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.1em;margin-bottom:2px">SECRETARÍA DE AMBIENTE · SMT</div>
-    <div class="hdr-title">♻️ TRANSFORMÁ</div>
-    <div class="hdr-sub" id="tr-sub">Red de Puntos Verdes · SMT</div>
-  </div>
-
-  <!-- KPIs -->
-  <div style="padding:10px 12px 0">
-    <div class="stats-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
-      <div class="stat"><div class="stat-val" id="tr-total" style="color:#2D6A2F">—</div><div class="stat-lbl">TOTAL</div></div>
-      <div class="stat"><div class="stat-val" id="tr-botel" style="color:#1565C0">—</div><div class="stat-lbl">BOTELL.</div></div>
-      <div class="stat"><div class="stat-val" id="tr-bolso" style="color:#2D6A2F">—</div><div class="stat-lbl">BOLSONES</div></div>
-      <div class="stat"><div class="stat-val" id="tr-otros" style="color:#558B2F">—</div><div class="stat-lbl">PV+TUL.</div></div>
-    </div>
-  </div>
-
-  <!-- Filtros tipo -->
-  <div style="padding:8px 12px 0;display:flex;gap:6px;flex-wrap:wrap" id="tr-chips">
-    <button class="chip active" onclick="trSetFiltro('TODOS',this)">TODOS</button>
-    <button class="chip" onclick="trSetFiltro('BOTELLONES',this)">🔵 Botellones</button>
-    <button class="chip" onclick="trSetFiltro('BOLSONES',this)">🟢 Bolsones</button>
-    <button class="chip" onclick="trSetFiltro('PV_FIJOS',this)">🟡 PV Fijos</button>
-    <button class="chip" onclick="trSetFiltro('TULIPANES',this)">🌷 Tulipanes</button>
-  </div>
-
-  <!-- Capas de cruce -->
-  <div style="padding:6px 12px 0;display:flex;gap:6px;flex-wrap:wrap">
-    <button id="tr-btn-bas" onclick="trToggle('basurales')"
-      style="flex:1;min-width:100px;padding:7px 4px;border-radius:8px;border:2px solid #D32F2F;background:#EAF3DE;color:#D32F2F;font-weight:700;font-size:11px;cursor:pointer;font-family:'Poppins',sans-serif;transition:.2s">
-      🔴 Basurales
-    </button>
-    <button id="tr-btn-ord" onclick="trToggle('ordenes')"
-      style="flex:1;min-width:100px;padding:7px 4px;border-radius:8px;border:2px solid #2D6A2F;background:#EAF3DE;color:#2D6A2F;font-weight:700;font-size:11px;cursor:pointer;font-family:'Poppins',sans-serif;transition:.2s">
-      📋 Órdenes
-    </button>
-    <button id="tr-btn-rad" onclick="trToggle('radio')"
-      style="flex:1;min-width:100px;padding:7px 4px;border-radius:8px;border:2px solid #1565C0;background:#EAF3DE;color:#1565C0;font-weight:700;font-size:11px;cursor:pointer;font-family:'Poppins',sans-serif;transition:.2s">
-      ⭕ Radio 500m
-    </button>
-  </div>
-
-  <!-- Mapa -->
-  <div style="padding:8px 12px 0">
-    <div id="tr-map" style="height:340px;border-radius:10px;border:1px solid #C0DD97;background:#e8f0e8;display:flex;align-items:center;justify-content:center">
-      <span style="font-size:12px;color:#4A6A4A">Tocá ♻️ TRANSFORMÁ para cargar el mapa</span>
-    </div>
-  </div>
-
-  <!-- Semaforización -->
-  <div style="padding:10px 12px 0">
-    <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.06em">COBERTURA DE BASURALES</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px" id="tr-sem">
-      <div style="background:#EAF3DE;border:2px solid #2D6A2F;border-radius:8px;padding:8px;text-align:center">
-        <div style="font-size:20px;font-weight:900;color:#2D6A2F" id="tr-sem-v">—</div>
-        <div style="font-size:9px;font-weight:700">🟢 &lt;500m</div>
-      </div>
-      <div style="background:#EAF3DE;border:2px solid #FF8F00;border-radius:8px;padding:8px;text-align:center">
-        <div style="font-size:20px;font-weight:900;color:#FF8F00" id="tr-sem-a">—</div>
-        <div style="font-size:9px;font-weight:700">🟡 &lt;1km</div>
-      </div>
-      <div style="background:#EAF3DE;border:2px solid #D32F2F;border-radius:8px;padding:8px;text-align:center">
-        <div style="font-size:20px;font-weight:900;color:#D32F2F" id="tr-sem-r">—</div>
-        <div style="font-size:9px;font-weight:700">🔴 Sin cobertura</div>
-      </div>
-    </div>
-    <div style="font-size:10px;color:#4A6A4A;margin-top:4px;padding:0 2px" id="tr-sem-note">Activá capa Basurales para calcular</div>
-  </div>
-
-  <!-- Densidad zona -->
-  <div style="padding:10px 12px 0">
-    <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.06em">DENSIDAD POR ZONA</div>
-    <div style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:10px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-        <span style="font-size:12px;font-weight:600">Zona Norte</span>
-        <span style="font-size:12px;font-weight:700;color:#2D6A2F" id="tr-norte">—</span>
-      </div>
-      <div style="background:#ddd;border-radius:99px;height:8px;overflow:hidden;margin-bottom:8px">
-        <div id="tr-bar-n" style="height:100%;background:#2D6A2F;border-radius:99px;width:0%;transition:width .6s"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-        <span style="font-size:12px;font-weight:600">Zona Sur</span>
-        <span style="font-size:12px;font-weight:700;color:#558B2F" id="tr-sur">—</span>
-      </div>
-      <div style="background:#ddd;border-radius:99px;height:8px;overflow:hidden">
-        <div id="tr-bar-s" style="height:100%;background:#558B2F;border-radius:99px;width:0%;transition:width .6s"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Top basurales con órdenes cerca de PV -->
-  <div style="padding:10px 12px 80px">
-    <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.06em">BASURALES CON ÓRDENES DENTRO DE 500m DE PV</div>
-    <div id="tr-ord-list" style="font-size:11px;color:#4A6A4A">Activá capa Basurales para calcular</div>
-  </div>
-</div><!-- end v-transforma -->
-
 <script>
 // ══════════════════════════════════════════
-// TRANSFORMÁ — estado global
+// MAPA UNIFICADO — Basurales + Puntos Verdes + Cruce
+// Una sola instancia Leaflet, tres tabs
 // ══════════════════════════════════════════
-var TR = {
-  data: null,         // PV_DATA
-  map: null,          // Leaflet map
-  ready: false,       // mapa + layers inicializados
-  loading: false,     // fetch en curso
-  worker: null,       // Web Worker
-  filtro: 'TODOS',
-  capas: {basurales:false, ordenes:false, radio:false},
-  layers: {pv:null, bas:null, ord:null, rad:null},
-  COLORS: {BOTELLONES:'#1565C0', BOLSONES:'#2D6A2F', PV_FIJOS:'#F9A825', TULIPANES:'#C62828'},
-  ICONS:  {BOTELLONES:'🔵', BOLSONES:'🟢', PV_FIJOS:'🟡', TULIPANES:'🌷'}
-};
 
-// ── Worker inline (Blob) ──────────────────
-function trMakeWorker() {
-  var code = `
-function distM(a1,g1,a2,g2){
-  var R=6371000,rad=Math.PI/180,dA=(a2-a1)*rad,dG=(g2-g1)*rad;
-  return 2*R*Math.asin(Math.sqrt(Math.pow(Math.sin(dA/2),2)+Math.cos(a1*rad)*Math.cos(a2*rad)*Math.pow(Math.sin(dG/2),2)));
-}
-function cellKey(lat,lng,c){return Math.floor(lat/c)+'_'+Math.floor(lng/c);}
-function buildGrid(pv,c){
-  var g={};
-  pv.forEach(function(p,i){var k=cellKey(p.a,p.g,c);if(!g[k])g[k]=[];g[k].push(i);});
-  return g;
-}
-function neighbors(lat,lng,pv,g,c,r){
-  var steps=Math.ceil(r/c)+1,bL=Math.floor(lat/c),bG=Math.floor(lng/c),out=[];
-  for(var dl=-steps;dl<=steps;dl++)for(var dg=-steps;dg<=steps;dg++){
-    var k=(bL+dl)+'_'+(bG+dg);if(g[k])g[k].forEach(function(i){out.push(pv[i]);});
-  }
-  return out;
-}
-self.onmessage=function(e){
-  var d=e.data,pv=d.pvData,bas=d.basurales||[],ords=d.orders||[];
-  if(d.type==='densidad'){
-    var n=0,s=0;
-    pv.forEach(function(p){if(p.a>-26.836)n++;else s++;});
-    self.postMessage({type:'densidad',norte:n,sur:s,total:pv.length});
-    return;
-  }
-  if(d.type==='semaforo'){
-    var C=0.008,R5=0.005,R10=0.010,g=buildGrid(pv,C);
-    var v=0,a=0,r=0,conPV=[];
-    bas.forEach(function(b){
-      var blat=parseFloat(b.lat),blng=parseFloat(b.lng);
-      if(isNaN(blat))return;
-      var cands=neighbors(blat,blng,pv,g,C,R10),min=Infinity;
-      cands.forEach(function(p){var dd=distM(blat,blng,p.a,p.g);if(dd<min)min=dd;});
-      if(min===Infinity)pv.forEach(function(p){var dd=distM(blat,blng,p.a,p.g);if(dd<min)min=dd;});
-      if(min<=500){v++;conPV.push(b);}else if(min<=1000)a++;else r++;
-    });
-    var cerca={};
-    ords.forEach(function(o){
-      (o.items||[]).forEach(function(it){
-        if(it.tipo!=='Basural'&&it.tipo!=='Volcadero')return;
-        var ubic=(it.ubic||'').toLowerCase();
-        conPV.forEach(function(b){
-          var bn=(b.nombre||'').toLowerCase();
-          var wB=bn.split(/\s+/).filter(function(w){return w.length>3;});
-          var wU=ubic.split(/\s+/).filter(function(w){return w.length>3;});
-          if(wB.some(function(w){return wU.indexOf(w)>=0;})){
-            cerca[b.nombre]=(cerca[b.nombre]||0)+1;
-          }
-        });
-      });
-    });
-    var top=Object.keys(cerca).map(function(k){return{n:k,c:cerca[k]};})
-      .sort(function(a,b){return b.c-a.c;}).slice(0,5);
-    self.postMessage({type:'semaforo',v:v,a:a,r:r,top:top,total:bas.length});
-  }
-};`;
-  var blob = new Blob([code], {type:'application/javascript'});
-  var w = new Worker(URL.createObjectURL(blob));
-  w.onmessage = trWorkerMsg;
-  w.onerror = function(e){ console.error('TR Worker:', e.message); };
+// ── Estado ────────────────────────────────
+var mapaTab = 'basurales'; // tab activo
+var pvData  = null;        // puntos verdes (fetch lazy)
+var pvFiltro = 'TODOS';
+var pvLoading = false;
+var pvWorker  = null;
+
+// Layers sobre leafletMap existente
+var pvLayer  = null; // L.layerGroup puntos verdes
+var basLayer = null; // basurales (ya los maneja initLeafletMap)
+var radLayer = null; // radios 500m
+
+var PV_COLORS = {BOTELLONES:'#1565C0', BOLSONES:'#2D6A2F', PV_FIJOS:'#F9A825', TULIPANES:'#C62828'};
+var PV_ICONS  = {BOTELLONES:'🔵', BOLSONES:'🟢', PV_FIJOS:'🟡', TULIPANES:'🌷'};
+
+// ── Worker inline ─────────────────────────
+function pvMakeWorker() {
+  var src = [
+    'function d(a1,g1,a2,g2){',
+    '  var R=6371000,rd=Math.PI/180,dA=(a2-a1)*rd,dG=(g2-g1)*rd;',
+    '  return 2*R*Math.asin(Math.sqrt(Math.pow(Math.sin(dA/2),2)+Math.cos(a1*rd)*Math.cos(a2*rd)*Math.pow(Math.sin(dG/2),2)));',
+    '}',
+    'function cK(a,g,c){return Math.floor(a/c)+"_"+Math.floor(g/c);}',
+    'function bG(pv,c){var g={};pv.forEach(function(p,i){var k=cK(p.a,p.g,c);if(!g[k])g[k]=[];g[k].push(i);});return g;}',
+    'function nb(a,g,pv,gr,c,r){',
+    '  var s=Math.ceil(r/c)+1,bA=Math.floor(a/c),bG=Math.floor(g/c),o=[];',
+    '  for(var da=-s;da<=s;da++)for(var dg=-s;dg<=s;dg++){var k=(bA+da)+"_"+(bG+dg);if(gr[k])gr[k].forEach(function(i){o.push(pv[i]);});}',
+    '  return o;',
+    '}',
+    'self.onmessage=function(e){',
+    '  var msg=e.data,pv=msg.pv,bas=msg.bas||[],ords=msg.ords||[];',
+    '  var C=0.008,R5=0.0045,R10=0.009,gr=bG(pv,C),v=0,a=0,r=0,cp=[];',
+    '  bas.forEach(function(b){',
+    '    var bl=parseFloat(b.lat),bg=parseFloat(b.lng);if(isNaN(bl))return;',
+    '    var cands=nb(bl,bg,pv,gr,C,R10),mn=Infinity;',
+    '    cands.forEach(function(p){var dd=d(bl,bg,p.a,p.g);if(dd<mn)mn=dd;});',
+    '    if(mn===Infinity)pv.forEach(function(p){var dd=d(bl,bg,p.a,p.g);if(dd<mn)mn=dd;});',
+    '    if(mn<=500){v++;cp.push(b);}else if(mn<=1000)a++;else r++;',
+    '  });',
+    '  var ck={};',
+    '  ords.forEach(function(o){(o.items||[]).forEach(function(it){',
+    '    if(it.tipo!=="Basural"&&it.tipo!=="Volcadero")return;',
+    '    var ub=(it.ubic||"").toLowerCase();',
+    '    cp.forEach(function(b){',
+    '      var bn=(b.nombre||"").toLowerCase();',
+    '      var wB=bn.split(/\\s+/).filter(function(w){return w.length>3;});',
+    '      if(wB.some(function(w){return ub.indexOf(w)>=0;})){ck[b.nombre]=(ck[b.nombre]||0)+1;}',
+    '    });',
+    '  });});',
+    '  var top=Object.keys(ck).map(function(k){return{n:k,c:ck[k]};}).sort(function(a,b){return b.c-a.c;}).slice(0,5);',
+    '  self.postMessage({v:v,a:a,r:r,top:top,tot:bas.length});',
+    '};'
+  ].join('\n');
+  var w = new Worker(URL.createObjectURL(new Blob([src],{type:'application/javascript'})));
+  w.onmessage = function(e) {
+    var d = e.data;
+    var sv = document.getElementById('cr-sem-v');
+    var sa = document.getElementById('cr-sem-a');
+    var sr = document.getElementById('cr-sem-r');
+    var sn = document.getElementById('cr-sem-note');
+    var ol = document.getElementById('cr-ord-list');
+    if (sv) sv.textContent = d.v;
+    if (sa) sa.textContent = d.a;
+    if (sr) sr.textContent = d.r;
+    if (sn) sn.textContent = d.tot + ' basurales analizados';
+    if (ol) {
+      ol.innerHTML = d.top.length
+        ? d.top.map(function(x){
+            return '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #C0DD97">'
+              +'<span style="font-size:10px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:6px">'+x.n+'</span>'
+              +'<b style="color:#D32F2F;font-size:11px;flex-shrink:0">'+x.c+'×</b></div>';
+          }).join('')
+        : '<span style="color:#4A6A4A">Sin coincidencias con órdenes cargadas.</span>';
+    }
+  };
+  w.onerror = function(e){ console.error('PV Worker:', e.message); };
   return w;
 }
 
-function trWorkerMsg(e) {
-  var d = e.data;
-  if (d.type === 'densidad') {
-    var pN = d.total ? Math.round(d.norte/d.total*100) : 0;
-    document.getElementById('tr-norte').textContent = d.norte + ' (' + pN + '%)';
-    document.getElementById('tr-sur').textContent   = d.sur + ' (' + (100-pN) + '%)';
-    document.getElementById('tr-bar-n').style.width = pN + '%';
-    document.getElementById('tr-bar-s').style.width = (100-pN) + '%';
-  }
-  if (d.type === 'semaforo') {
-    document.getElementById('tr-sem-v').textContent = d.v;
-    document.getElementById('tr-sem-a').textContent = d.a;
-    document.getElementById('tr-sem-r').textContent = d.r;
-    document.getElementById('tr-sem-note').textContent =
-      d.total + ' basurales analizados · calculado en background';
-    var el = document.getElementById('tr-ord-list');
-    if (d.top && d.top.length) {
-      el.innerHTML = d.top.map(function(x){
-        return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #C0DD97">' +
-          '<span style="font-size:10px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px">' + x.n + '</span>' +
-          '<b style="color:#D32F2F;font-size:11px;flex-shrink:0">' + x.c + '×</b></div>';
-      }).join('');
-    } else {
-      el.innerHTML = '<span style="color:#4A6A4A">Sin coincidencias con órdenes cargadas.</span>';
-    }
-  }
-}
-
-// ── Entrada principal ─────────────────────
-async function renderTransformaView() {
-  if (TR.loading) return;
-  // Si ya hay datos y mapa, solo invalidar tamaño (por si vino de otra vista)
-  if (TR.data && TR.ready && TR.map) {
-    setTimeout(function(){ TR.map.invalidateSize(); }, 100);
-    return;
-  }
-  TR.loading = true;
-  document.getElementById('tr-sub').textContent = 'Cargando datos…';
+// ── Carga lazy PV ─────────────────────────
+async function pvLoad() {
+  if (pvData) return pvData;
+  if (pvLoading) return null;
+  pvLoading = true;
+  var el = document.getElementById('pv-estado');
+  if (el) el.textContent = '…';
   try {
     var r = await fetch('pv_data.json');
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    TR.data = await r.json();
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    pvData = await r.json();
+    if (el) el.textContent = 'OK';
+    pvLoading = false;
+    return pvData;
   } catch(e) {
-    document.getElementById('tr-sub').textContent = '⚠ Error: ' + e.message;
-    TR.loading = false;
+    if (el) el.textContent = '⚠';
+    pvLoading = false;
+    return null;
+  }
+}
+
+// ── Cambio de tab ─────────────────────────
+async function setMapaTab(tab) {
+  mapaTab = tab;
+
+  // Estilos de tabs
+  var tabCols = {basurales:'#D32F2F', pv:'#2D6A2F', cruce:'#1565C0'};
+  ['basurales','pv','cruce'].forEach(function(t) {
+    var btn = document.getElementById('tab-'+t);
+    if (!btn) return;
+    var on = t === tab;
+    btn.style.background  = on ? tabCols[t] : '#EAF3DE';
+    btn.style.color       = on ? '#fff'      : tabCols[t];
+    btn.style.borderColor = tabCols[t];
+  });
+
+  // Panels
+  var panels = {basurales:'mp-panel-basurales', pv:'mp-panel-pv', cruce:'mp-panel-cruce'};
+  Object.keys(panels).forEach(function(t) {
+    var el = document.getElementById(panels[t]);
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+
+  // Stats zone + top5 solo en basurales
+  var statsEls = ['mapa-totales','mapa-card-norte','mapa-card-sur'].map(function(id){return document.getElementById(id);});
+  var topEl    = document.querySelector('[id^="mapa-top"]') ? document.querySelector('[id^="mapa-top"]').closest('div').parentElement : null;
+
+  // Leyenda
+  var leyenda = document.getElementById('mapa-leyenda');
+  var titulo  = document.getElementById('mapa-hdr-title');
+
+  if (tab === 'basurales') {
+    if (leyenda) leyenda.textContent = '🔴 Activos · 🟢 Inactivos · línea = Zona Norte/Sur';
+    if (titulo)  titulo.textContent  = 'Mapa de Basurales';
+    // Mostrar secciones de stats y top5
+    ['mapa-totales','mapa-card-norte','mapa-card-sur'].forEach(function(id){
+      var el = document.getElementById(id); if(el) el.closest && el.parentElement ? el.parentElement.style.display='' : null;
+    });
+    // Repintar mapa basurales
+    setMapaMode(mapaMode || 'activos');
     return;
   }
-  TR.loading = false;
 
-  // KPIs
-  var c = {BOTELLONES:0, BOLSONES:0, PV_FIJOS:0, TULIPANES:0};
-  TR.data.forEach(function(p){ c[p.t] = (c[p.t]||0)+1; });
-  document.getElementById('tr-total').textContent = TR.data.length;
-  document.getElementById('tr-botel').textContent = c.BOTELLONES||0;
-  document.getElementById('tr-bolso').textContent = c.BOLSONES||0;
-  document.getElementById('tr-otros').textContent = (c.PV_FIJOS||0)+(c.TULIPANES||0);
-
-  // Densidad vía worker
-  if (!TR.worker) TR.worker = trMakeWorker();
-  TR.worker.postMessage({type:'densidad', pvData: TR.data});
-
-  trInitMap();
-}
-
-function trInitMap() {
-  var el = document.getElementById('tr-map');
-  if (!el || typeof L === 'undefined') return;
-  el.innerHTML = '';
-  el.style.display = 'block';
-  setTimeout(function() {
-    if (!TR.map) {
-      TR.map = L.map('tr-map', {zoomControl:true, preferCanvas:true})
-                .setView([-26.835,-65.220], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        {attribution:'© OSM', maxZoom:19, crossOrigin:true}).addTo(TR.map);
-      TR.layers.pv  = L.layerGroup().addTo(TR.map);
-      TR.layers.bas = L.layerGroup();
-      TR.layers.ord = L.layerGroup();
-      TR.layers.rad = L.layerGroup();
-      // Línea divisoria norte/sur
-      L.polyline([[-26.818,-65.265],[-26.837,-65.175]],
-        {color:'#555', weight:1.5, dashArray:'5,4', opacity:.5}).addTo(TR.map);
-    } else {
-      TR.layers.pv.clearLayers();
-    }
-    TR.ready = true;
-    trRenderPuntos();
-    // Re-aplicar capas que el usuario activó antes de que el mapa estuviera listo
-    if (TR.capas.basurales) { TR.layers.bas.addTo(TR.map); trRenderBas(); trDispatchSemaforo(); }
-    if (TR.capas.ordenes)   { TR.layers.ord.addTo(TR.map); trRenderOrd(); }
-    if (TR.capas.radio)     { TR.layers.rad.addTo(TR.map); trRenderRad(); }
-  }, 100);
-}
-
-// Renderiza puntos en chunks para no freezar UI
-function trRenderPuntos() {
-  if (!TR.ready || !TR.data) return;
-  TR.layers.pv.clearLayers();
-  var data = TR.filtro === 'TODOS' ? TR.data : TR.data.filter(function(p){ return p.t === TR.filtro; });
-  var i = 0, CHUNK = 60;
-  function chunk() {
-    var end = Math.min(i + CHUNK, data.length);
-    for (; i < end; i++) {
-      var p = data[i], col = TR.COLORS[p.t]||'#2D6A2F';
-      L.circleMarker([p.a,p.g], {radius:6, fillColor:col, color:'#fff', weight:1.5, fillOpacity:.88})
-        .bindPopup('<b>' + (TR.ICONS[p.t]||'●') + ' ' + (p.n||'Sin nombre') + '</b>' +
-          (p.d ? '<br><small style="color:#555">' + p.d + '</small>' : '') +
-          '<br><small style="color:#2D6A2F;font-weight:700">' + p.t.replace('_',' ') + '</small>')
-        .addTo(TR.layers.pv);
-    }
-    if (i < data.length) setTimeout(chunk, 0);
-    else document.getElementById('tr-sub').textContent =
-      data.length + ' puntos · ' + (TR.filtro==='TODOS'?'todos':(TR.ICONS[TR.filtro]||'')+' '+TR.filtro.replace('_',' '));
+  // Para PV y Cruce: limpiar layers de basurales del mapa
+  if (leafletMap) {
+    leafletMap.eachLayer(function(l){ if(!(l instanceof L.TileLayer)) leafletMap.removeLayer(l); });
+    // Reponer línea divisoria y etiquetas
+    pvAddDivisoria();
   }
-  chunk();
+
+  if (tab === 'pv') {
+    if (leyenda) leyenda.textContent = '🔵 Botellones · 🟢 Bolsones · 🟡 PV Fijos · 🌷 Tulipanes';
+    if (titulo)  titulo.textContent  = '♻️ Puntos Verdes';
+    var data = await pvLoad();
+    if (!data) return;
+    pvRenderLayer(data);
+    pvCalcDensidad(data);
+  }
+
+  if (tab === 'cruce') {
+    if (leyenda) leyenda.textContent = '🔴 Basurales · ♻️ Puntos Verdes · ⭕ Radio 500m de PV';
+    if (titulo)  titulo.textContent  = '🔀 Cruce Basurales / Puntos Verdes';
+    var data2 = await pvLoad();
+    if (!data2) return;
+    pvRenderLayer(data2);
+    pvRenderBasurales();
+    pvRenderRadios(data2);
+    pvDispatchWorker(data2);
+  }
+
+  if (leafletMap) setTimeout(function(){ leafletMap.invalidateSize(); }, 200);
 }
 
-function trSetFiltro(tipo, el) {
-  TR.filtro = tipo;
-  document.querySelectorAll('#tr-chips .chip').forEach(function(c){ c.classList.remove('active'); });
+// ── Divisoria y etiquetas ─────────────────
+function pvAddDivisoria() {
+  if (!leafletMap || typeof L === 'undefined') return;
+  L.polyline([[-26.818429,-65.264615],[-26.836939,-65.174625]],
+    {color:'#333',weight:3,dashArray:'8,5',opacity:.9})
+    .addTo(leafletMap)
+    .bindPopup('<b>Av. Benjamín Aráoz / 24 de Septiembre / Mate de Luna</b><br>Límite Zona Norte / Zona Sur');
+  L.marker([-26.814,-65.215],{icon:L.divIcon({
+    html:'<div style="background:#2D6A2F;color:#fff;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,.3)">▲ ZONA NORTE</div>',
+    iconSize:[110,22],iconAnchor:[55,11]
+  })}).addTo(leafletMap);
+  L.marker([-26.852,-65.215],{icon:L.divIcon({
+    html:'<div style="background:#555;color:#fff;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,.3)">▼ ZONA SUR</div>',
+    iconSize:[90,22],iconAnchor:[45,11]
+  })}).addTo(leafletMap);
+}
+
+// ── Render PV en chunks ───────────────────
+function pvRenderLayer(data) {
+  if (!leafletMap) return;
+  if (pvLayer) { pvLayer.clearLayers(); } else { pvLayer = L.layerGroup().addTo(leafletMap); }
+  var subset = pvFiltro === 'TODOS' ? data : data.filter(function(p){ return p.t === pvFiltro; });
+  var i = 0, CHUNK = 70;
+  function go() {
+    var end = Math.min(i+CHUNK, subset.length);
+    for (; i<end; i++) {
+      var p = subset[i], col = PV_COLORS[p.t]||'#2D6A2F';
+      L.circleMarker([p.a,p.g],{radius:6,fillColor:col,color:'#fff',weight:1.5,fillOpacity:.88})
+        .bindPopup('<b>'+(PV_ICONS[p.t]||'●')+' '+(p.n||'Sin nombre')+'</b>'
+          +(p.d?'<br><small style="color:#555">'+p.d+'</small>':'')
+          +'<br><small style="color:'+col+';font-weight:700">'+p.t.replace('_',' ')+'</small>')
+        .addTo(pvLayer);
+    }
+    if (i < subset.length) setTimeout(go, 0);
+  }
+  go();
+  document.getElementById('pv-total').textContent = subset.length;
+}
+
+// ── Render basurales (en tab cruce) ───────
+function pvRenderBasurales() {
+  if (!leafletMap || !(typeof mapData !== 'undefined')) return;
+  mapData.forEach(function(p){
+    var lat=parseFloat(p.lat), lng=parseFloat(p.lng);
+    if(isNaN(lat)) return;
+    L.circleMarker([lat,lng],{radius:7,fillColor:'#D32F2F',color:'#fff',weight:1.5,fillOpacity:.85})
+      .bindPopup('<b>🔴 '+( p.nombre||'Basural')+'</b>')
+      .addTo(pvLayer);
+  });
+}
+
+// ── Render radios 500m ────────────────────
+function pvRenderRadios(data) {
+  if (!leafletMap) return;
+  var subset = pvFiltro === 'TODOS' ? data : data.filter(function(p){ return p.t === pvFiltro; });
+  subset.forEach(function(p){
+    L.circle([p.a,p.g],{radius:500,fillColor:PV_COLORS[p.t]||'#2D6A2F',
+      fillOpacity:.07,color:PV_COLORS[p.t]||'#2D6A2F',weight:1,opacity:.25}).addTo(pvLayer);
+  });
+}
+
+// ── Filtro tipo PV ────────────────────────
+function pvSetFiltro(tipo, el) {
+  pvFiltro = tipo;
+  document.querySelectorAll('#pv-chips .chip').forEach(function(c){ c.classList.remove('active'); });
   if (el) el.classList.add('active');
-  if (TR.ready) {
-    trRenderPuntos();
-    if (TR.capas.radio) { TR.layers.rad.clearLayers(); trRenderRad(); }
+  if (!pvData || !leafletMap) return;
+  if (mapaTab === 'pv') pvRenderLayer(pvData);
+  if (mapaTab === 'cruce') {
+    if (pvLayer) pvLayer.clearLayers();
+    pvRenderLayer(pvData);
+    pvRenderBasurales();
+    pvRenderRadios(pvData);
   }
 }
 
-function trToggle(capa) {
-  TR.capas[capa] = !TR.capas[capa];
-  var ids = {basurales:'tr-btn-bas', ordenes:'tr-btn-ord', radio:'tr-btn-rad'};
-  var cols = {basurales:'#D32F2F', ordenes:'#2D6A2F', radio:'#1565C0'};
-  var btn = document.getElementById(ids[capa]);
-  var on = TR.capas[capa];
-  btn.style.background  = on ? cols[capa] : '#EAF3DE';
-  btn.style.color       = on ? '#fff'     : cols[capa];
-  btn.style.borderColor = cols[capa];
-  if (!TR.ready) return; // se aplica en trInitMap cuando el mapa esté listo
-  var L_grp = {basurales: TR.layers.bas, ordenes: TR.layers.ord, radio: TR.layers.rad};
-  var renderers = {
-    basurales: function(){ trRenderBas(); trDispatchSemaforo(); },
-    ordenes:   trRenderOrd,
-    radio:     trRenderRad
-  };
-  if (on) { L_grp[capa].addTo(TR.map); renderers[capa](); }
-  else    { L_grp[capa].remove(); }
+// ── Densidad norte/sur PV ─────────────────
+function pvCalcDensidad(data) {
+  var subset = pvFiltro === 'TODOS' ? data : data.filter(function(p){ return p.t === pvFiltro; });
+  var norte = subset.filter(function(p){ return p.a > -26.836; }).length;
+  var sur   = subset.length - norte;
+  document.getElementById('pv-norte').textContent = norte;
+  document.getElementById('pv-sur').textContent   = sur;
 }
 
-function trDispatchSemaforo() {
-  var bas = (typeof mapData!=='undefined') ? mapData : [];
+// ── Worker semaforización ─────────────────
+function pvDispatchWorker(data) {
+  var bas  = (typeof mapData  !== 'undefined') ? mapData  : [];
+  var ords = (typeof orders   !== 'undefined') ? orders   : [];
+  var sv = document.getElementById('cr-sem-v');
+  var sa = document.getElementById('cr-sem-a');
+  var sr = document.getElementById('cr-sem-r');
+  var sn = document.getElementById('cr-sem-note');
   if (!bas.length) {
-    document.getElementById('tr-sem-note').textContent = 'Sin datos de basurales en el sistema';
+    if (sn) sn.textContent = 'Sin datos de basurales — restaurá el backup primero';
+    if (sv) sv.textContent = '—';
+    if (sa) sa.textContent = '—';
+    if (sr) sr.textContent = '—';
     return;
   }
-  document.getElementById('tr-sem-v').textContent = '…';
-  document.getElementById('tr-sem-a').textContent = '…';
-  document.getElementById('tr-sem-r').textContent = '…';
-  document.getElementById('tr-sem-note').textContent = 'Calculando en background…';
-  document.getElementById('tr-ord-list').innerHTML = '<span style="color:#4A6A4A">Calculando…</span>';
-  if (!TR.worker) TR.worker = trMakeWorker();
-  var ords = (typeof orders!=='undefined') ? orders : [];
-  TR.worker.postMessage({type:'semaforo', pvData:TR.data, basurales:bas, orders:ords});
+  if (sv) sv.textContent = '…';
+  if (sa) sa.textContent = '…';
+  if (sr) sr.textContent = '…';
+  if (sn) sn.textContent = 'Calculando en background…';
+  if (!pvWorker) pvWorker = pvMakeWorker();
+  pvWorker.postMessage({pv: data, bas: bas, ords: ords});
 }
 
-function trRenderBas() {
-  TR.layers.bas.clearLayers();
-  var bas = (typeof mapData!=='undefined') ? mapData : [];
-  bas.forEach(function(p){
-    var lat=parseFloat(p.lat), lng=parseFloat(p.lng);
-    if(isNaN(lat)) return;
-    L.circleMarker([lat,lng], {radius:7, fillColor:'#D32F2F', color:'#fff', weight:1.5, fillOpacity:.85})
-      .bindPopup('<b>🔴 Basural</b><br>' + (p.nombre||''))
-      .addTo(TR.layers.bas);
+// ── Inicialización del tab MAPA ───────────
+// Sobreescribir renderMapaView para activar tab basurales por defecto
+var _origRenderMapaView = typeof renderMapaView === 'function' ? renderMapaView : null;
+function renderMapaView() {
+  if (_origRenderMapaView) _origRenderMapaView();
+  // Resetear al tab basurales
+  mapaTab = 'basurales';
+  ['basurales','pv','cruce'].forEach(function(t) {
+    var btn = document.getElementById('tab-'+t);
+    var tabCols = {basurales:'#D32F2F', pv:'#2D6A2F', cruce:'#1565C0'};
+    if (!btn) return;
+    btn.style.background  = t==='basurales' ? '#D32F2F' : '#EAF3DE';
+    btn.style.color       = t==='basurales' ? '#fff'    : tabCols[t];
+    btn.style.borderColor = tabCols[t];
   });
-}
-
-function trRenderOrd() {
-  TR.layers.ord.clearLayers();
-  var bas = (typeof mapData!=='undefined') ? mapData : [];
-  var ords = (typeof orders!=='undefined') ? orders : [];
-  if (!bas.length || !ords.length) return;
-  var fq = {};
-  ords.forEach(function(o){ (o.items||[]).forEach(function(i){
-    if(i.tipo!=='Basural'&&i.tipo!=='Volcadero') return;
-    var k=(i.ubic||'').toLowerCase().trim(); fq[k]=(fq[k]||0)+1;
-  });});
-  bas.forEach(function(p){
-    var lat=parseFloat(p.lat), lng=parseFloat(p.lng);
-    if(isNaN(lat)) return;
-    var k=(p.nombre||'').toLowerCase().trim(), freq=fq[k]||0;
-    if(!freq){ var kt=k.split(/\s+/).filter(function(w){return w.length>3;});
-      Object.keys(fq).forEach(function(fk){
-        var c=fk.split(/\s+/).filter(function(w){return w.length>3&&kt.indexOf(w)>=0;}).length;
-        if(c>=2) freq=Math.max(freq,fq[fk]);
-      });
-    }
-    if(!freq) return;
-    L.circleMarker([lat,lng],{radius:Math.min(5+freq*2,18),fillColor:'#FF6F00',color:'#fff',weight:1.5,fillOpacity:.78})
-      .bindPopup('<b>📋 '+(p.nombre||'')+'</b><br><span style="color:#FF6F00;font-weight:700">'+freq+' orden(es)</span>')
-      .addTo(TR.layers.ord);
-  });
-}
-
-function trRenderRad() {
-  TR.layers.rad.clearLayers();
-  if (!TR.data) return;
-  var data = TR.filtro==='TODOS' ? TR.data : TR.data.filter(function(p){return p.t===TR.filtro;});
-  data.forEach(function(p){
-    L.circle([p.a,p.g],{radius:500, fillColor:TR.COLORS[p.t]||'#2D6A2F',
-      fillOpacity:.07, color:TR.COLORS[p.t]||'#2D6A2F', weight:1, opacity:.25}).addTo(TR.layers.rad);
+  var panels = {basurales:'mp-panel-basurales', pv:'mp-panel-pv', cruce:'mp-panel-cruce'};
+  Object.keys(panels).forEach(function(t) {
+    var el = document.getElementById(panels[t]);
+    if (el) el.style.display = t === 'basurales' ? '' : 'none';
   });
 }
 </script>
