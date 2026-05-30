@@ -866,6 +866,9 @@ function renderMapaView() {
 
   document.getElementById('mapa-sub').textContent = `${total} puntos activos · ${mapInactivos.length} inactivos`;
 
+  // Reset frecuencias acumuladas entre visitas
+  window._mapaFreqAll = null;
+  window._mapaFreqMap = {};
   // Frecuencia en órdenes por zona
   const freqMap = {};
   orders.forEach(o => {
@@ -890,6 +893,7 @@ function renderMapaView() {
   }
 
   updateMapaTop5();
+  pvInitTabs(); // resetear tabs sin redeclarar la función
   initLeafletMap();
   setMapaMode('activos');
 }
@@ -3576,16 +3580,13 @@ function pvDispatchWorker(data) {
   pvWorker.postMessage({pv: data, bas: bas, ords: ords});
 }
 
-// ── Inicialización del tab MAPA ───────────
-// Sobreescribir renderMapaView para activar tab basurales por defecto
-var _origRenderMapaView = typeof renderMapaView === 'function' ? renderMapaView : null;
-function renderMapaView() {
-  if (_origRenderMapaView) _origRenderMapaView();
-  // Resetear al tab basurales
+// ── Init tabs al entrar al MAPA ──────────
+// Se llama desde setMapaTab al cargar por primera vez
+function pvInitTabs() {
   mapaTab = 'basurales';
+  var tabCols = {basurales:'#D32F2F', pv:'#2D6A2F', cruce:'#1565C0'};
   ['basurales','pv','cruce'].forEach(function(t) {
     var btn = document.getElementById('tab-'+t);
-    var tabCols = {basurales:'#D32F2F', pv:'#2D6A2F', cruce:'#1565C0'};
     if (!btn) return;
     btn.style.background  = t==='basurales' ? '#D32F2F' : '#EAF3DE';
     btn.style.color       = t==='basurales' ? '#fff'    : tabCols[t];
