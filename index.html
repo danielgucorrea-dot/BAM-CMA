@@ -3673,12 +3673,12 @@ function pvInitTabs() {
       <button id="fisc-btn-tmf" onclick="fiscSetVia('tmf',this)"
         style="background:#EAF3DE;border:2px solid #C0DD97;border-radius:8px;padding:8px 4px;cursor:pointer;font-family:'Poppins',sans-serif">
         <div class="stat-val" id="fisc-tmf" style="color:#1565C0;font-size:18px;font-weight:900">—</div>
-        <div class="stat-lbl">CON MULTA</div>
+        <div class="stat-lbl">CON EXPTE.</div>
       </button>
       <button id="fisc-btn-fisc" onclick="fiscSetVia('fisc',this)"
         style="background:#EAF3DE;border:2px solid #C0DD97;border-radius:8px;padding:8px 4px;cursor:pointer;font-family:'Poppins',sans-serif">
         <div class="stat-val" id="fisc-sin" style="color:#FF8F00;font-size:18px;font-weight:900">—</div>
-        <div class="stat-lbl">FISCALÍA</div>
+        <div class="stat-lbl">SIN EXPTE.</div>
       </button>
       <button id="fisc-btn-vehic" onclick="fiscSetVia('vehic',this)"
         style="background:#EAF3DE;border:2px solid #C0DD97;border-radius:8px;padding:8px 4px;cursor:pointer;font-family:'Poppins',sans-serif">
@@ -3706,14 +3706,14 @@ function pvInitTabs() {
       <button onclick="fiscSetVia('tmf',this)"
         style="background:#E8F5E9;border:2px solid #2D6A2F;border-radius:10px;padding:10px;text-align:center;cursor:pointer;font-family:'Poppins',sans-serif;width:100%">
         <div style="font-size:22px;font-weight:900;color:#2D6A2F" id="fisc-k-tmf">—</div>
-        <div style="font-size:10px;font-weight:700">✅ Formalizadas</div>
-        <div style="font-size:9px;color:#2D6A2F">Tocar para filtrar</div>
+        <div style="font-size:10px;font-weight:700">✅ Con Expediente</div>
+        <div style="font-size:9px;color:#2D6A2F">Expte. administrativo</div>
       </button>
       <button onclick="fiscSetVia('fisc',this)"
         style="background:#FFF8E1;border:2px solid #FF8F00;border-radius:10px;padding:10px;text-align:center;cursor:pointer;font-family:'Poppins',sans-serif;width:100%">
         <div style="font-size:22px;font-weight:900;color:#FF8F00" id="fisc-k-sin">—</div>
-        <div style="font-size:10px;font-weight:700">⏳ Vía Fiscalía</div>
-        <div style="font-size:9px;color:#4A6A4A">Sin expte. formal</div>
+        <div style="font-size:10px;font-weight:700">⏳ Sin Expediente</div>
+        <div style="font-size:9px;color:#4A6A4A">Vía Fiscalía Ambiental</div>
       </button>
     </div>
     <div style="background:#ddd;border-radius:99px;height:10px;overflow:hidden;margin-top:6px;display:flex">
@@ -3883,7 +3883,7 @@ function fiscRender() {
     var fmtF=d+'/'+m+'/'+y;
     var tb=a.tmf
       ?'<span style="background:#2D6A2F;color:#fff;border-radius:4px;padding:2px 6px;font-size:9px;font-weight:700">✅ MULTA</span>'
-      :'<span style="background:#FF8F00;color:#fff;border-radius:4px;padding:2px 6px;font-size:9px;font-weight:700">⏳ FISCALÍA</span>';
+      :'<span style="background:#FF8F00;color:#fff;border-radius:4px;padding:2px 6px;font-size:9px;font-weight:700">⏳ SIN EXPTE.</span>';
     var db=a.dominios.map(d=>'<span style="background:#1565C0;color:#fff;border-radius:3px;padding:1px 5px;font-size:9px;margin-left:3px">🚗 '+d+'</span>').join('');
     return '<div style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:10px 12px;margin-bottom:6px">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">'
