@@ -215,15 +215,10 @@ button{cursor:pointer;font-family:inherit}
 <div id="v-analytics" class="hidden">
   <div class="hdr">
     <div class="hdr-title">Analítica mensual</div>
-    <!-- Month nav -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
-      <button id="anl-prev" onclick="monthNav(-1)" style="background:#C0DD97;border:1px solid #C0DD97;border-radius:6px;color:#4A6A4A;font-size:18px;width:36px;height:36px;display:flex;align-items:center;justify-content:center">‹</button>
-      <div style="text-align:center">
-        <div id="anl-month-label" style="font-size:15px;font-weight:700;color:#fff;letter-spacing:-.3px">—</div>
-        <div id="anl-month-sub" style="font-size:10px;color:#4A6A4A;font-family:'Poppins',sans-serif;margin-top:1px">—</div>
-      </div>
-      <button id="anl-next" onclick="monthNav(1)" style="background:#C0DD97;border:1px solid #C0DD97;border-radius:6px;color:#4A6A4A;font-size:18px;width:36px;height:36px;display:flex;align-items:center;justify-content:center">›</button>
-    </div>
+    <!-- Month nav: grilla de botones -->
+    <div id="anl-month-label" style="font-size:15px;font-weight:700;color:#fff;letter-spacing:-.3px;margin-top:8px;text-align:center">—</div>
+    <div id="anl-month-sub"  style="font-size:10px;color:rgba(255,255,255,.6);font-family:'Poppins',sans-serif;margin-top:2px;text-align:center">—</div>
+    <div id="anl-month-btns" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;justify-content:center"></div>
   </div>
   <div style="padding:12px 12px 80px" id="anl-body"></div>
 </div>
@@ -1837,6 +1832,14 @@ function getMonthKeys() {
   return Array.from(s).sort();
 }
 
+function anlGoTo(idx) {
+  currentMonthIdx = idx;
+  renderAnalytics();
+  // Scroll al botón activo
+  const btn = document.querySelectorAll('#anl-month-btns button')[idx];
+  if (btn) btn.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'});
+}
+
 function monthNav(dir) {
   const keys = getMonthKeys();
   if (!keys.length) return;
@@ -1887,9 +1890,23 @@ function renderAnalytics() {
   const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
     'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][parseInt(m)-1];
 
-  // Nav arrows visibility
-  document.getElementById('anl-prev').style.opacity = currentMonthIdx > 0 ? '1' : '0.2';
-  document.getElementById('anl-next').style.opacity = currentMonthIdx < keys.length-1 ? '1' : '0.2';
+  // Renderizar grilla de botones de mes (una sola vez o al cambiar índice)
+  const btnsEl = document.getElementById('anl-month-btns');
+  if (btnsEl) {
+    const MESES_ABR = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    btnsEl.innerHTML = keys.map((k, i) => {
+      const [ky, km] = k.split('-');
+      const active = i === currentMonthIdx;
+      return `<button onclick="anlGoTo(${i})" style="
+        padding:5px 9px;border-radius:6px;border:2px solid ${active?'#fff':'rgba(255,255,255,.35)'};
+        background:${active?'#fff':'transparent'};
+        color:${active?'#2D6A2F':'rgba(255,255,255,.85)'};
+        font-family:'Poppins',sans-serif;font-size:10px;font-weight:${active?'700':'500'};
+        cursor:pointer;white-space:nowrap;transition:.15s">
+        ${MESES_ABR[parseInt(km)-1]} ${ky.slice(2)}
+      </button>`;
+    }).join('');
+  }
   document.getElementById('anl-month-label').textContent = `${mesNombre} ${y}`;
 
   // Orders for this month
