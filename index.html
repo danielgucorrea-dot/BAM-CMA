@@ -1282,7 +1282,8 @@ function showView(name) {
   if (name === 'home')   { renderHome(); return; }
   if (name === 'import') { requestAnimationFrame(renderImportSummary); return; }
   if (name === 'cruce')  { requestAnimationFrame(renderCruceView); return; }
-  if (name === 'mapa')   { requestAnimationFrame(renderMapaView); return; }
+  if (name === 'mapa')           { requestAnimationFrame(renderMapaView); return; }
+  if (name === 'fiscalizacion')  { requestAnimationFrame(renderFiscalizacion); return; }
   if (name === 'analytics') {
     requestAnimationFrame(() => {
       const keys = getMonthKeys();
