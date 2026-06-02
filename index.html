@@ -335,7 +335,7 @@ button{cursor:pointer;font-family:inherit}
         <span id="ct4-count" style="font-size:13px;font-weight:900;color:#06b6d4">—</span><br>INACTIVOS EN ORD
       </button>
     </div>
-    <div style="padding:10px 12px 80px" id="cruce-results"></div>
+    <div style="padding:10px 12px 80px" id="cruce-results" style="padding-bottom:80px"></div>
   </div>
 </div>
 
@@ -3094,21 +3094,21 @@ ensureData();
     <div style="padding:8px 12px 0">
       <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.05em">¿QUÉ BASURALES TIENEN UN PUNTO VERDE CERCA?</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
-        <div style="background:#E8F5E9;border:2px solid #2D6A2F;border-radius:10px;padding:10px;text-align:center">
+        <button onclick="crFiltroSet('v',this)" style="background:#E8F5E9;border:2px solid #2D6A2F;border-radius:10px;padding:10px;text-align:center;cursor:pointer;font-family:'Poppins',sans-serif;width:100%">
           <div style="font-size:22px;font-weight:900;color:#2D6A2F" id="cr-sem-v">…</div>
           <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-top:2px">Cubiertos</div>
-          <div style="font-size:9px;color:#4A6A4A">PV a &lt;500m</div>
-        </div>
-        <div style="background:#FFF8E1;border:2px solid #FF8F00;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:#2D6A2F">↓ ver lista</div>
+        </button>
+        <button onclick="crFiltroSet('a',this)" style="background:#FFF8E1;border:2px solid #FF8F00;border-radius:10px;padding:10px;text-align:center;cursor:pointer;font-family:'Poppins',sans-serif;width:100%">
           <div style="font-size:22px;font-weight:900;color:#FF8F00" id="cr-sem-a">…</div>
           <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-top:2px">Parciales</div>
-          <div style="font-size:9px;color:#4A6A4A">PV entre 500m–1km</div>
-        </div>
-        <div style="background:#FFEBEE;border:2px solid #D32F2F;border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:9px;color:#FF8F00">↓ ver lista</div>
+        </button>
+        <button onclick="crFiltroSet('r',this)" style="background:#FFEBEE;border:2px solid #D32F2F;border-radius:10px;padding:10px;text-align:center;cursor:pointer;font-family:'Poppins',sans-serif;width:100%">
           <div style="font-size:22px;font-weight:900;color:#D32F2F" id="cr-sem-r">…</div>
           <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-top:2px">Sin cobertura</div>
-          <div style="font-size:9px;color:#4A6A4A">Ningún PV &lt;1km</div>
-        </div>
+          <div style="font-size:9px;color:#D32F2F">↓ ver lista</div>
+        </button>
       </div>
       <div style="font-size:10px;color:#4A6A4A;margin-top:5px" id="cr-sem-note">Calculando…</div>
     </div>
@@ -3127,10 +3127,6 @@ ensureData();
     <div style="padding:6px 12px 0">
       <div style="font-size:11px;font-weight:700;color:#D32F2F;margin-bottom:4px;letter-spacing:.05em">🔴 BASURALES SIN PUNTO VERDE CERCANO</div>
       <div id="cr-sin-pv" style="font-size:10px;color:#4A6A4A">Calculando…</div>
-    </div>
-    <div style="padding:6px 12px 8px">
-      <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:4px;letter-spacing:.05em">📋 BASURALES CON MÁS REGISTROS EN ÓRDENES</div>
-      <div id="cr-ord-list" style="font-size:11px;color:#4A6A4A">Calculando…</div>
     </div>
   </div>
 
@@ -3357,17 +3353,65 @@ function pvMakeWorker() {
     '    if(mn<=500){v++;cp.push(b);}else if(mn<=1000)a++;else r++;',
     '  });',
     '  var top=[];',
-    '  var sinPv=bas.filter(function(b){',
-    '    var bl=parseFloat(b.lat),bg=parseFloat(b.lng);if(isNaN(bl))return false;',
+    '  var listV=[],listA=[],listR=[];',
+    '  bas.forEach(function(b){',
+    '    var bl=parseFloat(b.lat),bg=parseFloat(b.lng);if(isNaN(bl))return;',
     '    var cands=nb(bl,bg,pv,gr,C,R10),mn=Infinity;',
     '    cands.forEach(function(p){var dd=d(bl,bg,p.a,p.g);if(dd<mn)mn=dd;});',
     '    if(mn===Infinity)pv.forEach(function(p){var dd=d(bl,bg,p.a,p.g);if(dd<mn)mn=dd;});',
-    '    return mn>1000;',
-    '  }).map(function(b){return b.nombre||"Sin nombre";});',
-    '  self.postMessage({v:v,a:a,r:r,tot:bas.length,sinPv:sinPv});',
+    '    var nm=b.nombre||"Sin nombre";',
+    '    if(mn<=500)listV.push(nm);else if(mn<=1000)listA.push(nm);else listR.push(nm);',
+    '  });',
+    '  self.postMessage({v:listV.length,a:listA.length,r:listR.length,tot:bas.length,sinPv:listR,listV:listV,listA:listA});',
     '};'
   ].join('\n');
   var w = new Worker(URL.createObjectURL(new Blob([src],{type:'application/javascript'})));
+  var _crListas = {v:[], a:[], r:[]};
+  var _crFiltroActivo = 'r';
+
+  function crFiltroSet(tipo, el) {
+    _crFiltroActivo = (_crFiltroActivo === tipo) ? 'r' : tipo;
+    ['v','a','r'].forEach(function(t){
+      var cols={v:'#2D6A2F',a:'#FF8F00',r:'#D32F2F'};
+      var bgs={v:'#E8F5E9',a:'#FFF8E1',r:'#FFEBEE'};
+      // seleccionar el botón por su onclick
+      var btns = document.querySelectorAll('#mp-panel-cruce button[onclick]');
+      btns.forEach(function(b){
+        var ot = b.getAttribute('onclick').match(/'([var])'/);
+        if(!ot) return;
+        var isActive = ot[1] === _crFiltroActivo;
+        b.style.borderWidth = isActive ? '3px' : '2px';
+        b.style.opacity = '1';
+      });
+    });
+    crUpdateLista();
+  }
+
+  function crUpdateLista() {
+    var el = document.getElementById('cr-sin-pv');
+    if (!el) return;
+    var lista = _crListas[_crFiltroActivo] || _crListas.r;
+    var titulos = {
+      v:'🟢 CUBIERTOS — PV a menos de 500m',
+      a:'🟡 PARCIALES — PV entre 500m y 1km',
+      r:'🔴 SIN COBERTURA — ningún PV a menos de 1km'
+    };
+    var cols = {v:'#2D6A2F', a:'#FF8F00', r:'#D32F2F'};
+    var col = cols[_crFiltroActivo] || '#D32F2F';
+    if (!lista.length) {
+      el.innerHTML = '<span style="color:#2D6A2F;font-size:10px">✅ Sin registros en esta categoría</span>';
+      return;
+    }
+    el.innerHTML = '<div style="font-size:10px;font-weight:700;color:'+col+';margin-bottom:5px">'
+      + titulos[_crFiltroActivo] + ' ('+lista.length+')</div>'
+      + lista.slice(0,10).map(function(x){
+          return '<div style="display:flex;align-items:center;padding:4px 0;border-bottom:1px solid #eee">'
+            +'<span style="color:'+col+';margin-right:6px;flex-shrink:0">●</span>'
+            +'<span style="font-size:10px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x+'</span></div>';
+        }).join('')
+      + (lista.length>10 ? '<div style="font-size:9px;color:#888;padding-top:3px">...y '+(lista.length-10)+' más</div>' : '');
+  }
+
   w.onmessage = function(e) {
     var d=e.data, tot=d.tot||1;
     var g=function(id){return document.getElementById(id);};
@@ -3382,13 +3426,8 @@ function pvMakeWorker() {
     if(g('cr-pct-v')) g('cr-pct-v').textContent='Cubiertos '+pv+'%';
     if(g('cr-pct-a')) g('cr-pct-a').textContent='Parciales '+pa+'%';
     if(g('cr-pct-r')) g('cr-pct-r').textContent='Sin cobertura '+pr+'%';
-    if(g('cr-sin-pv')) g('cr-sin-pv').innerHTML = d.sinPv&&d.sinPv.length
-      ? d.sinPv.slice(0,8).map(function(x){
-          return '<div style="display:flex;align-items:center;padding:4px 0;border-bottom:1px solid #FFCDD2">'
-            +'<span style="color:#D32F2F;margin-right:6px">🔴</span>'
-            +'<span style="font-size:10px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x+'</span></div>';
-        }).join('')+(d.sinPv.length>8?'<div style="font-size:9px;color:#888;padding-top:3px">...y '+(d.sinPv.length-8)+' más</div>':'')
-      : '<span style="color:#2D6A2F;font-size:10px">✅ Todos tienen al menos un PV a menos de 1km</span>';
+    _crListas.v = d.listV||[]; _crListas.a = d.listA||[]; _crListas.r = d.sinPv||[];
+    crUpdateLista();
     // Top: recalcular on-demand si está vacío
     var fqMap = window._mapaFreqMap || {};
     if (!Object.keys(fqMap).length && typeof orders!=='undefined' && orders.length) {
@@ -3400,24 +3439,8 @@ function pvMakeWorker() {
       });});
       window._mapaFreqMap = fqMap;
     }
-    var ol = g('cr-ord-list');
-    if(ol) {
-      var topLocal = Object.keys(fqMap)
-        .map(function(k){return{n:k,c:fqMap[k]};})
-        .filter(function(x){return x.c>0;})
-        .sort(function(a,b){return b.c-a.c;})
-        .slice(0,5);
-      ol.innerHTML = topLocal.length
-        ? topLocal.map(function(x){
-            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #C0DD97">'
-              +'<div style="flex:1;overflow:hidden"><div style="font-size:10px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x.n+'</div>'
-              +'<div style="font-size:9px;color:#2D6A2F">basural con más órdenes registradas</div></div>'
-              +'<div style="text-align:right;margin-left:8px;flex-shrink:0"><b style="color:#D32F2F;font-size:13px">'+x.c+'</b>'
-              +'<div style="font-size:8px;color:#888">items</div></div></div>';
-          }).join('')
-        : '<span style="color:#4A6A4A;font-size:10px">Cargá un backup primero para ver órdenes.</span>';
-    }
   };
+
   w.onerror = function(e){ console.error('PV Worker:', e.message); };
   return w;
 }
