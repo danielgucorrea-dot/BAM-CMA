@@ -126,8 +126,7 @@ button{cursor:pointer;font-family:inherit}
 <!-- VIEW: HOME -->
 
 <div id="v-home">
-  <div class="hdr" style="position:relative">
-    <button class="btn-dl" onclick="dlOpen('ordenes')">📥 Descargar</button>
+  <div class="hdr">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div>
         <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.1em;margin-bottom:2px">SECRETARÍA DE AMBIENTE · SMT</div><div class="hdr-title">Órdenes de Servicio</div>
@@ -138,7 +137,10 @@ button{cursor:pointer;font-family:inherit}
         <div style="font-size:10px;color:#4A6A4A;font-family:'Poppins',sans-serif">CUMPL. %</div>
       </div>
     </div>
-    <div class="prog" style="margin-top:10px"><div class="prog-fill" id="h-prog" style="background:#2D6A2F;width:0%"></div></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:6px">
+      <button class="btn-dl" onclick="dlOpen('ordenes')" style="position:static;font-size:10px;padding:4px 10px">📥 Descargar</button>
+    </div>
+    <div class="prog" style="margin-top:6px"><div class="prog-fill" id="h-prog" style="background:#2D6A2F;width:0%"></div></div>
   </div>
 
   <!-- AÑO -->
@@ -4217,16 +4219,19 @@ function dlPDF(secciones, filename) {
     +'Dashboard Ambiental SMT · '+fecha+'</div>'
     +'</body></html>';
 
-  var el = document.createElement('div');
-  el.innerHTML = html_content;
-  el.style.position='absolute';el.style.left='-9999px';
-  document.body.appendChild(el);
-
-  var opt = {margin:10,filename:filename+'.pdf',image:{type:'jpeg',quality:.92},
-    html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}};
-
-  if(typeof html2pdf==='undefined'){alert('Cargando PDF… intentá de nuevo en 2 segundos');document.body.removeChild(el);return;}
-  html2pdf().set(opt).from(el).save().then(function(){document.body.removeChild(el);});
+  if(typeof html2pdf==='undefined'){
+    alert('Cargando PDF… intentá de nuevo en 2 segundos');
+    return;
+  }
+  var opt = {
+    margin: [10,10,10,10],
+    filename: filename+'.pdf',
+    image: {type:'jpeg', quality:0.95},
+    html2canvas: {scale:2, useCORS:true, logging:false},
+    jsPDF: {unit:'mm', format:'a4', orientation:'portrait'}
+  };
+  // Pasar HTML como string — más confiable que elemento DOM oculto
+  html2pdf().set(opt).from(html_content).save();
 }
 
 // ── Trigger descarga ──────────────────────
