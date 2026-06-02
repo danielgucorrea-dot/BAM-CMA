@@ -20,6 +20,14 @@ html,body{height:100%}
 body{font-family:'Poppins',-apple-system,'Helvetica Neue',sans-serif;background:#BEBEBE;color:#1A2E1A;max-width:480px;margin:0 auto;min-height:100%;font-size:14px;overflow-x:hidden}
 .mono{font-family:'Poppins',sans-serif}
 .hidden{display:none!important;visibility:hidden}
+.btn-dl{position:absolute;top:10px;right:12px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);border-radius:8px;color:#fff;font-size:10px;font-weight:700;font-family:'Poppins',sans-serif;padding:5px 10px;cursor:pointer;display:flex;align-items:center;gap:4px;letter-spacing:.04em;transition:.15s;z-index:10}
+.btn-dl:hover{background:rgba(255,255,255,.3)}
+.dl-modal{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:5000;display:flex;align-items:flex-end;justify-content:center}
+.dl-panel{background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:480px;padding:20px 16px 32px;font-family:'Poppins',sans-serif}
+.dl-fmt-btn{flex:1;padding:12px 6px;border-radius:10px;border:2px solid #C0DD97;background:#EAF3DE;cursor:pointer;font-family:'Poppins',sans-serif;font-size:11px;font-weight:700;color:#1A2E1A;text-align:center;transition:.15s}
+.dl-fmt-btn.sel{background:#2D6A2F;color:#fff;border-color:#2D6A2F}
+.dl-chk{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #EAF3DE;font-size:12px;color:#1A2E1A;cursor:pointer}
+.dl-chk input[type=checkbox]{width:18px;height:18px;accent-color:#2D6A2F;cursor:pointer;flex-shrink:0}
 button{cursor:pointer;font-family:inherit}
 
 /* ── HEADER ── */
@@ -107,6 +115,8 @@ button{cursor:pointer;font-family:inherit}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
@@ -116,7 +126,8 @@ button{cursor:pointer;font-family:inherit}
 <!-- VIEW: HOME -->
 
 <div id="v-home">
-  <div class="hdr">
+  <div class="hdr" style="position:relative">
+    <button class="btn-dl" onclick="dlOpen('ordenes')">📥 Descargar</button>
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div>
         <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.1em;margin-bottom:2px">SECRETARÍA DE AMBIENTE · SMT</div><div class="hdr-title">Órdenes de Servicio</div>
@@ -213,7 +224,8 @@ button{cursor:pointer;font-family:inherit}
 
 <!-- VIEW: ANALYTICS -->
 <div id="v-analytics" class="hidden">
-  <div class="hdr">
+  <div class="hdr" style="position:relative">
+    <button class="btn-dl" onclick="dlOpen('analytics')">📥 Descargar</button>
     <div class="hdr-title">Analítica mensual</div>
     <!-- Month nav: grilla de botones -->
     <div id="anl-month-label" style="font-size:15px;font-weight:700;color:#fff;letter-spacing:-.3px;margin-top:8px;text-align:center">—</div>
@@ -276,7 +288,8 @@ button{cursor:pointer;font-family:inherit}
 
 <!-- VIEW: CRUCE -->
 <div id="v-cruce" class="hidden">
-  <div class="hdr">
+  <div class="hdr" style="position:relative">
+    <button class="btn-dl" onclick="dlOpen('cruce')">📥 Descargar</button>
     <div class="hdr-title">Cruce Mapa × Órdenes</div>
     <div class="hdr-sub mono" id="cruce-sub">Cargá el CSV del mapa para comparar</div>
   </div>
@@ -3025,6 +3038,7 @@ ensureData();
 <div id="v-mapa" class="hidden">
   <div class="hdr">
     <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.1em;margin-bottom:2px">SECRETARÍA DE AMBIENTE · SMT</div>
+    <button class="btn-dl" onclick="dlOpen('mapa')">📥 Descargar</button>
     <div class="hdr-title" id="mapa-hdr-title">Mapa de Basurales</div>
     <div class="hdr-sub" id="mapa-sub">(Última actualización: Abril 2026)</div>
   </div>
@@ -3683,6 +3697,7 @@ function pvInitTabs() {
 <div id="v-fiscalizacion" class="hidden">
   <div class="hdr">
     <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.1em;margin-bottom:2px">SECRETARÍA DE AMBIENTE · SMT</div>
+    <button class="btn-dl" onclick="dlOpen('fiscalizacion')">📥 Descargar</button>
     <div class="hdr-title">⚖️ Actas de Infracción</div>
     <div class="hdr-sub" id="fisc-sub">Ordenanzas de Higiene 2026</div>
   </div>
@@ -3917,6 +3932,353 @@ function fiscRender() {
       +'<div style="font-size:9px;color:#4A6A4A;margin-top:3px">'+a.ordenanza+'</div></div>';
   }).join('')+(pool.length>30?'<div style="text-align:center;padding:8px;font-size:10px;color:#4A6A4A">...y '+(pool.length-30)+' actas más. Filtrá por mes para ver todas.</div>':'');
   if(g('fisc-sub')) g('fisc-sub').textContent=tot+' actas · '+con+' con multa · '+sin+' en fiscalía';
+}
+</script>
+
+
+<!-- ══ MODAL DESCARGA ══ -->
+<div id="dl-modal" class="dl-modal hidden" onclick="if(event.target===this)dlClose()">
+  <div class="dl-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700;color:#1A2E1A">📥 Descargar informe</div>
+      <button onclick="dlClose()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#666">✕</button>
+    </div>
+
+    <!-- Sección -->
+    <div style="font-size:11px;font-weight:700;color:#4A6A4A;margin-bottom:6px;letter-spacing:.06em">INFORMACIÓN A INCLUIR</div>
+    <div id="dl-checks"></div>
+
+    <!-- Formato -->
+    <div style="font-size:11px;font-weight:700;color:#4A6A4A;margin:12px 0 6px;letter-spacing:.06em">FORMATO</div>
+    <div style="display:flex;gap:6px">
+      <button class="dl-fmt-btn sel" id="dl-fmt-csv"  onclick="dlSelFmt('csv')">
+        📊<br>CSV<br><span style="font-size:9px;font-weight:400">Datos crudos</span>
+      </button>
+      <button class="dl-fmt-btn" id="dl-fmt-xlsx" onclick="dlSelFmt('xlsx')">
+        📗<br>XLSX<br><span style="font-size:9px;font-weight:400">Excel</span>
+      </button>
+      <button class="dl-fmt-btn" id="dl-fmt-pdf"  onclick="dlSelFmt('pdf')">
+        📄<br>PDF<br><span style="font-size:9px;font-weight:400">Informe</span>
+      </button>
+    </div>
+
+    <!-- Botón descargar -->
+    <button id="dl-execute" onclick="dlExecute()"
+      style="width:100%;margin-top:16px;padding:13px;background:#2D6A2F;color:#fff;border:none;
+      border-radius:10px;font-size:14px;font-weight:700;font-family:'Poppins',sans-serif;cursor:pointer">
+      Descargar
+    </button>
+    <div id="dl-status" style="text-align:center;font-size:11px;color:#4A6A4A;margin-top:8px;min-height:16px"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// SISTEMA DE DESCARGA — CSV / XLSX / PDF
+// ══════════════════════════════════════════
+var _dlVista = '';
+var _dlFmt   = 'csv';
+
+var DL_SECCIONES = {
+  ordenes:       { label:'📋 Órdenes de servicio',   icon:'📋' },
+  analytics:     { label:'📊 Analítica mensual',      icon:'📊' },
+  cruce:         { label:'🔀 Cruce Mapa × Órdenes',  icon:'🔀' },
+  mapa:          { label:'🗺️ Basurales del mapa',     icon:'🗺️' },
+  fiscalizacion: { label:'⚖️ Actas de infracción',    icon:'⚖️' },
+};
+
+function dlOpen(vista) {
+  _dlVista = vista;
+  _dlFmt   = 'csv';
+  // Resetear formato
+  ['csv','xlsx','pdf'].forEach(function(f) {
+    var b = document.getElementById('dl-fmt-'+f);
+    if(b) b.classList.toggle('sel', f==='csv');
+  });
+  // Construir checks: la sección actual marcada, las demás desmarcadas
+  var cont = document.getElementById('dl-checks');
+  if(cont) {
+    cont.innerHTML = Object.keys(DL_SECCIONES).map(function(k) {
+      var s = DL_SECCIONES[k];
+      var checked = k === vista;
+      var enabled = dlHasDatos(k);
+      return '<label class="dl-chk" style="'+(enabled?'':'opacity:.4;pointer-events:none')+'">'
+        +'<input type="checkbox" id="dl-chk-'+k+'"'+(checked&&enabled?' checked':'')+'>'
+        +'<span>'+s.label+'</span>'
+        +(enabled?'':'<span style="font-size:9px;color:#999;margin-left:auto">Sin datos</span>')
+        +'</label>';
+    }).join('');
+  }
+  document.getElementById('dl-status').textContent = '';
+  document.getElementById('dl-modal').classList.remove('hidden');
+}
+
+function dlClose() {
+  document.getElementById('dl-modal').classList.add('hidden');
+}
+
+function dlHasDatos(k) {
+  if(k==='ordenes')       return typeof orders!=='undefined' && orders.length>0;
+  if(k==='analytics')     return typeof orders!=='undefined' && orders.length>0;
+  if(k==='cruce')         return typeof mapData!=='undefined' && mapData.length>0;
+  if(k==='mapa')          return typeof mapData!=='undefined' && mapData.length>0;
+  if(k==='fiscalizacion') return typeof ACTAS_DATA!=='undefined' && ACTAS_DATA.length>0;
+  return false;
+}
+
+function dlSelFmt(fmt) {
+  _dlFmt = fmt;
+  ['csv','xlsx','pdf'].forEach(function(f) {
+    var b = document.getElementById('dl-fmt-'+f);
+    if(b) b.classList.toggle('sel', f===fmt);
+  });
+}
+
+function dlGetSeleccionados() {
+  return Object.keys(DL_SECCIONES).filter(function(k) {
+    var el = document.getElementById('dl-chk-'+k);
+    return el && el.checked;
+  });
+}
+
+// ── Generadores de datos por sección ─────
+function dlDatosOrdenes() {
+  if(typeof orders==='undefined') return [];
+  return orders.map(function(o) {
+    return {
+      Fecha: o.fecha, Número: o.numero,
+      Items: o.items.length,
+      Basurales: (o.items||[]).filter(function(i){return i.tipo==='Basural';}).length,
+      Volcaderos: (o.items||[]).filter(function(i){return i.tipo==='Volcadero';}).length,
+      'Cumplimiento_%': o.cumpl||'',
+    };
+  });
+}
+
+function dlDatosAnalytics() {
+  if(typeof orders==='undefined') return [];
+  var pm = {};
+  orders.forEach(function(o) {
+    var m = o.fecha.slice(0,7);
+    if(!pm[m]) pm[m]={mes:m,ordenes:0,items:0,basurales:0};
+    pm[m].ordenes++;
+    pm[m].items += (o.items||[]).length;
+    pm[m].basurales += (o.items||[]).filter(function(i){return i.tipo==='Basural';}).length;
+  });
+  return Object.values(pm).sort(function(a,b){return a.mes.localeCompare(b.mes);}).map(function(r){
+    return {'Mes':r.mes,'Órdenes':r.ordenes,'Items totales':r.items,'Basurales':r.basurales};
+  });
+}
+
+function dlDatosMapa() {
+  if(typeof mapData==='undefined') return [];
+  return mapData.map(function(p) {
+    return {Nombre:p.nombre||'',Lat:p.lat||'',Lng:p.lng||'',Tipo:p.tipo||'activo'};
+  });
+}
+
+function dlDatosCruce() {
+  if(typeof mapData==='undefined'||typeof orders==='undefined') return [];
+  var fq={};
+  orders.forEach(function(o){(o.items||[]).forEach(function(i){
+    if(i.tipo!=='Basural'&&i.tipo!=='Volcadero') return;
+    var k=(i.ubic||'').toLowerCase().trim(); fq[k]=(fq[k]||0)+1;
+  });});
+  return mapData.map(function(p) {
+    var k=(p.nombre||'').toLowerCase().trim();
+    return {Basural:p.nombre||'',Lat:p.lat||'',Lng:p.lng||'',Frecuencia_ordenes:fq[k]||0};
+  }).sort(function(a,b){return b.Frecuencia_ordenes-a.Frecuencia_ordenes;});
+}
+
+function dlDatosFiscalizacion() {
+  if(typeof ACTAS_DATA==='undefined') return [];
+  return ACTAS_DATA.map(function(a) {
+    var parts=a.fecha.split('-');
+    return {
+      Fecha: parts[2]+'/'+parts[1]+'/'+parts[0],
+      'Acta N°': a.acta,
+      Lugar: a.lugar,
+      Motivo: a.motivo,
+      Categoría: a.motivo_cat,
+      Imputado: a.imputado,
+      Ordenanza: a.ordenanza,
+      Expediente: a.expte,
+      'Con expediente': a.tmf?'Sí':'No',
+      Dominios: (a.dominios||[]).join(', '),
+    };
+  });
+}
+
+var DL_GETTERS = {
+  ordenes: dlDatosOrdenes,
+  analytics: dlDatosAnalytics,
+  cruce: dlDatosCruce,
+  mapa: dlDatosMapa,
+  fiscalizacion: dlDatosFiscalizacion,
+};
+
+// ── CSV ───────────────────────────────────
+function dlCSV(rows, filename) {
+  if(!rows.length) return;
+  var keys = Object.keys(rows[0]);
+  var csv  = keys.join(',')+'\n'
+    + rows.map(function(r){
+        return keys.map(function(k){
+          var v = String(r[k]||'').replace(/"/g,'""');
+          return v.includes(',')||v.includes('"')||v.includes('\n') ? '"'+v+'"' : v;
+        }).join(',');
+      }).join('\n');
+  var blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  dlTrigger(blob, filename+'.csv');
+}
+
+// ── XLSX ──────────────────────────────────
+function dlXLSX(sheets, filename) {
+  if(typeof XLSX==='undefined') { alert('Cargando XLSX… intentá de nuevo en 2 segundos'); return; }
+  var wb = XLSX.utils.book_new();
+  Object.keys(sheets).forEach(function(name) {
+    var ws = XLSX.utils.json_to_sheet(sheets[name]);
+    // Ancho automático
+    var cols = Object.keys(sheets[name][0]||{}).map(function(k){
+      var max = Math.max(k.length, ...sheets[name].map(r=>String(r[k]||'').length));
+      return {wch: Math.min(max+2, 40)};
+    });
+    ws['!cols'] = cols;
+    XLSX.utils.book_append_sheet(wb, ws, name.slice(0,31));
+  });
+  XLSX.writeFile(wb, filename+'.xlsx');
+}
+
+// ── PDF ───────────────────────────────────
+function dlPDF(secciones, filename) {
+  var fecha = new Date().toLocaleDateString('es-AR');
+  var meses = typeof orders!=='undefined' ? [...new Set(orders.map(o=>o.fecha.slice(0,7)))].sort() : [];
+  var rango = meses.length ? meses[0]+' → '+meses[meses.length-1] : 'N/D';
+
+  var bloques = secciones.map(function(k) {
+    var datos = DL_GETTERS[k]();
+    if(!datos.length) return '';
+    var tit = DL_SECCIONES[k].label;
+
+    // KPIs resumen
+    var kpis = '';
+    if(k==='ordenes') {
+      var tot=datos.length, bas=datos.reduce(function(s,r){return s+(r.Basurales||0);},0);
+      kpis='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:8px 0">'
+        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#2D6A2F">'+tot+'</b><br><span style="font-size:9px">Órdenes</span></div>'
+        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#2D6A2F">'+datos.reduce(function(s,r){return s+(r.Items||0);},0)+'</b><br><span style="font-size:9px">Items totales</span></div>'
+        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#D32F2F">'+bas+'</b><br><span style="font-size:9px">Basurales</span></div>'
+        +'</div>';
+    }
+    if(k==='fiscalizacion') {
+      var tot2=datos.length, conE=datos.filter(function(r){return r['Con expediente']==='Sí';}).length;
+      kpis='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:8px 0">'
+        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#2D6A2F">'+tot2+'</b><br><span style="font-size:9px">Actas</span></div>'
+        +'<div style="background:#E8F5E9;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#1565C0">'+conE+'</b><br><span style="font-size:9px">Con expediente</span></div>'
+        +'<div style="background:#FFF8E1;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#FF8F00">'+(tot2-conE)+'</b><br><span style="font-size:9px">Vía Fiscalía</span></div>'
+        +'</div>';
+    }
+    if(k==='mapa') {
+      kpis='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0">'
+        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#2D6A2F">'+datos.length+'</b><br><span style="font-size:9px">Puntos totales</span></div>'
+        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#D32F2F">'+datos.filter(function(r){return r.Tipo==='activo';}).length+'</b><br><span style="font-size:9px">Activos</span></div>'
+        +'</div>';
+    }
+
+    // Tabla con los primeros 20 registros
+    var keys = Object.keys(datos[0]||{});
+    var tabla = '<table style="width:100%;border-collapse:collapse;font-size:9px;margin-top:8px">'
+      +'<thead><tr>'+keys.map(function(k){return '<th style="background:#2D6A2F;color:#fff;padding:5px 4px;text-align:left;white-space:nowrap">'+k+'</th>';}).join('')+'</tr></thead>'
+      +'<tbody>'+datos.slice(0,20).map(function(r,i){
+        return '<tr style="background:'+(i%2===0?'#EAF3DE':'#fff')+'">'
+          +keys.map(function(k){return '<td style="padding:4px;border-bottom:1px solid #C0DD97;vertical-align:top">'+String(r[k]||'')+'</td>';}).join('')
+          +'</tr>';
+      }).join('')
+      +(datos.length>20?'<tr><td colspan="'+keys.length+'" style="padding:5px;color:#888;font-style:italic">...y '+(datos.length-20)+' registros más</td></tr>':'')
+      +'</tbody></table>';
+
+    return '<div style="margin-bottom:20px;page-break-inside:avoid">'
+      +'<h2 style="font-size:13px;color:#1A2E1A;border-bottom:2px solid #2D6A2F;padding-bottom:4px;margin-bottom:6px">'+tit+'</h2>'
+      +kpis+tabla+'</div>';
+  }).join('');
+
+  var html_content = '<!DOCTYPE html><html><head>'
+    +'<meta charset="UTF-8">'
+    +'<style>body{font-family:Arial,sans-serif;font-size:10px;color:#1A2E1A;margin:24px}'
+    +'h1{font-size:16px;color:#2D6A2F}h2{font-size:13px}</style>'
+    +'</head><body>'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:3px solid #2D6A2F;padding-bottom:10px">'
+    +'<div><h1>Secretaría de Ambiente · San Miguel de Tucumán</h1>'
+    +'<div style="font-size:11px;color:#4A6A4A">Informe de gestión ambiental · Generado: '+fecha+'</div>'
+    +'<div style="font-size:10px;color:#4A6A4A">Período: '+rango+'</div></div>'
+    +'<div style="font-size:28px">🌿</div></div>'
+    +bloques
+    +'<div style="margin-top:20px;font-size:9px;color:#888;border-top:1px solid #ddd;padding-top:8px">'
+    +'Dashboard Ambiental SMT · '+fecha+'</div>'
+    +'</body></html>';
+
+  var el = document.createElement('div');
+  el.innerHTML = html_content;
+  el.style.position='absolute';el.style.left='-9999px';
+  document.body.appendChild(el);
+
+  var opt = {margin:10,filename:filename+'.pdf',image:{type:'jpeg',quality:.92},
+    html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}};
+
+  if(typeof html2pdf==='undefined'){alert('Cargando PDF… intentá de nuevo en 2 segundos');document.body.removeChild(el);return;}
+  html2pdf().set(opt).from(el).save().then(function(){document.body.removeChild(el);});
+}
+
+// ── Trigger descarga ──────────────────────
+function dlTrigger(blob, filename) {
+  var url = URL.createObjectURL(blob);
+  var a   = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.click();
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+}
+
+// ── Ejecutar descarga ─────────────────────
+function dlExecute() {
+  var sel = dlGetSeleccionados();
+  if(!sel.length){ document.getElementById('dl-status').textContent='Seleccioná al menos una sección'; return; }
+
+  var st = document.getElementById('dl-status');
+  var fecha = new Date().toISOString().slice(0,10);
+  var fname  = 'amb-smt-'+fecha;
+
+  st.textContent = 'Generando…';
+  document.getElementById('dl-execute').disabled = true;
+
+  setTimeout(function() {
+    try {
+      if(_dlFmt === 'csv') {
+        // Un CSV por sección
+        sel.forEach(function(k) {
+          var datos = DL_GETTERS[k]();
+          if(datos.length) dlCSV(datos, fname+'-'+k);
+        });
+        st.textContent = '✅ '+(sel.length>1?sel.length+' archivos':'Archivo')+' descargado(s)';
+      }
+      else if(_dlFmt === 'xlsx') {
+        var sheets = {};
+        sel.forEach(function(k) {
+          var datos = DL_GETTERS[k]();
+          if(datos.length) sheets[DL_SECCIONES[k].label.replace(/[^\w\s]/g,'').trim().slice(0,31)] = datos;
+        });
+        if(Object.keys(sheets).length) dlXLSX(sheets, fname);
+        st.textContent = '✅ Excel descargado';
+      }
+      else if(_dlFmt === 'pdf') {
+        dlPDF(sel, fname);
+        st.textContent = '✅ PDF generándose…';
+      }
+    } catch(e) {
+      st.textContent = '⚠ Error: '+e.message;
+      console.error(e);
+    }
+    document.getElementById('dl-execute').disabled = false;
+  }, 50);
 }
 </script>
 
