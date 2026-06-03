@@ -3950,8 +3950,21 @@ function fiscRender() {
     <div style="font-size:11px;font-weight:700;color:#4A6A4A;margin-bottom:6px;letter-spacing:.06em">INFORMACIÓN A INCLUIR</div>
     <div id="dl-checks"></div>
 
+    <!-- Período -->
+    <div style="font-size:11px;font-weight:700;color:#4A6A4A;margin:10px 0 6px;letter-spacing:.06em">PERÍODO</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center" id="dl-periodo-row">
+      <select id="dl-per-anio" style="flex:1;min-width:70px;padding:7px;border:1px solid #C0DD97;border-radius:6px;font-family:'Poppins',sans-serif;font-size:11px;background:#EAF3DE">
+        <option value="">Todos los años</option>
+      </select>
+      <select id="dl-per-mes" style="flex:1;min-width:90px;padding:7px;border:1px solid #C0DD97;border-radius:6px;font-family:'Poppins',sans-serif;font-size:11px;background:#EAF3DE">
+        <option value="">Todos los meses</option>
+      </select>
+      <button onclick="dlPerReset()" style="padding:7px 10px;border:1px solid #C0DD97;border-radius:6px;background:#fff;font-size:11px;cursor:pointer;font-family:'Poppins',sans-serif;color:#4A6A4A">↺ Todo</button>
+    </div>
+    <div id="dl-periodo-label" style="font-size:10px;color:#2D6A2F;font-weight:600;margin-top:4px"></div>
+
     <!-- Formato -->
-    <div style="font-size:11px;font-weight:700;color:#4A6A4A;margin:12px 0 6px;letter-spacing:.06em">FORMATO</div>
+    <div style="font-size:11px;font-weight:700;color:#4A6A4A;margin:10px 0 6px;letter-spacing:.06em">FORMATO</div>
     <div style="display:flex;gap:6px">
       <button class="dl-fmt-btn sel" id="dl-fmt-csv"  onclick="dlSelFmt('csv')">
         📊<br>CSV<br><span style="font-size:9px;font-weight:400">Datos crudos</span>
@@ -4012,7 +4025,36 @@ function dlOpen(vista) {
     }).join('');
   }
   document.getElementById('dl-status').textContent = '';
+  // Poblar selects de período
+  var anios = typeof orders!=='undefined' ? [...new Set(orders.map(o=>o.fecha.slice(0,4)))].sort().reverse() : [];
+  var selA = document.getElementById('dl-per-anio');
+  var selM = document.getElementById('dl-per-mes');
+  if(selA) {
+    selA.innerHTML = '<option value="">Todos los años</option>'
+      + anios.map(function(a){return '<option value="'+a+'">'+a+'</option>';}).join('');
+  }
+  if(selM) {
+    var MNOMS = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    selM.innerHTML = '<option value="">Todos los meses</option>'
+      + MNOMS.slice(1).map(function(m,i){return '<option value="'+(i+1<10?'0'+(i+1):i+1)+'">'+m+'</option>';}).join('');
+  }
+  dlPerLabel();
   document.getElementById('dl-modal').classList.remove('hidden');
+}
+
+function dlPerReset() {
+  var sa=document.getElementById('dl-per-anio'), sm=document.getElementById('dl-per-mes');
+  if(sa) sa.value=''; if(sm) sm.value='';
+  dlPerLabel();
+}
+
+function dlPerLabel() {
+  var a=document.getElementById('dl-per-anio')?.value||'';
+  var m=document.getElementById('dl-per-mes')?.value||'';
+  var MNOMS=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var lbl = a&&m ? MNOMS[+m]+' '+a : a ? 'Todo '+a : m ? MNOMS[+m]+' (todos los años)' : 'Todo el período disponible';
+  var el = document.getElementById('dl-periodo-label');
+  if(el) el.textContent = '📅 '+lbl;
 }
 
 function dlClose() {
@@ -4044,23 +4086,37 @@ function dlGetSeleccionados() {
 }
 
 // ── Generadores de datos por sección ─────
-function dlDatosOrdenes() {
+function dlGetPeriodo() {
+  var a = document.getElementById('dl-per-anio')?.value||'';
+  var m = document.getElementById('dl-per-mes')?.value||'';
+  return {anio:a, mes:m};
+}
+function dlFiltrarOrdenes() {
   if(typeof orders==='undefined') return [];
-  return orders.map(function(o) {
+  var p = dlGetPeriodo();
+  return orders.filter(function(o){
+    if(p.anio && !o.fecha.startsWith(p.anio)) return false;
+    if(p.mes && o.fecha.slice(5,7) !== p.mes) return false;
+    return true;
+  });
+}
+function dlDatosOrdenes() {
+  return dlFiltrarOrdenes().map(function(o) {
     return {
-      Fecha: o.fecha, Número: o.numero,
-      Items: o.items.length,
+      Fecha: o.fecha,
+      'N° Orden': o.numero,
+      'Total items': (o.items||[]).length,
       Basurales: (o.items||[]).filter(function(i){return i.tipo==='Basural';}).length,
       Volcaderos: (o.items||[]).filter(function(i){return i.tipo==='Volcadero';}).length,
-      'Cumplimiento_%': o.cumpl||'',
     };
   });
 }
 
 function dlDatosAnalytics() {
-  if(typeof orders==='undefined') return [];
+  var pool = dlFiltrarOrdenes();
+  if(!pool.length) return [];
   var pm = {};
-  orders.forEach(function(o) {
+  pool.forEach(function(o) {
     var m = o.fecha.slice(0,7);
     if(!pm[m]) pm[m]={mes:m,ordenes:0,items:0,basurales:0};
     pm[m].ordenes++;
@@ -4094,7 +4150,13 @@ function dlDatosCruce() {
 
 function dlDatosFiscalizacion() {
   if(typeof ACTAS_DATA==='undefined') return [];
-  return ACTAS_DATA.map(function(a) {
+  var p = dlGetPeriodo();
+  var pool = ACTAS_DATA.filter(function(a){
+    if(p.anio && !a.fecha.startsWith(p.anio)) return false;
+    if(p.mes && a.fecha.slice(5,7) !== p.mes) return false;
+    return true;
+  });
+  return pool.map(function(a) {
     var parts=a.fecha.split('-');
     return {
       Fecha: parts[2]+'/'+parts[1]+'/'+parts[0],
@@ -4153,84 +4215,194 @@ function dlXLSX(sheets, filename) {
 
 // ── PDF ───────────────────────────────────
 function dlPDF(secciones, filename) {
-  var fecha = new Date().toLocaleDateString('es-AR');
-  var meses = typeof orders!=='undefined' ? [...new Set(orders.map(o=>o.fecha.slice(0,7)))].sort() : [];
-  var rango = meses.length ? meses[0]+' → '+meses[meses.length-1] : 'N/D';
+  if(typeof html2pdf==='undefined'){ alert('Cargando PDF… intentá de nuevo en 2 segundos'); return; }
 
-  var bloques = secciones.map(function(k) {
-    var datos = DL_GETTERS[k]();
+  var p      = dlGetPeriodo();
+  var fechaGen = new Date().toLocaleDateString('es-AR');
+  var MNOMS  = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var perLabel = p.anio&&p.mes ? MNOMS[+p.mes]+' '+p.anio : p.anio ? p.anio : p.mes ? MNOMS[+p.mes] : 'Todo el período';
+
+  // ── Helpers SVG (barras horizontales) ──────────────────────────
+  function svgBarras(datos, labelKey, valKey, color, titulo) {
     if(!datos.length) return '';
+    var max = Math.max.apply(null, datos.map(function(r){return r[valKey]||0;}));
+    if(!max) return '';
+    var h = Math.min(datos.length * 26 + 40, 400);
+    var bars = datos.slice(0,12).map(function(r,i) {
+      var v   = r[valKey]||0;
+      var w   = max ? Math.round(v/max*220) : 0;
+      var y   = 30 + i*26;
+      var lbl = String(r[labelKey]||'').slice(0,22);
+      return '<text x="0" y="'+(y+14)+'" font-size="9" fill="#1A2E1A">'+lbl+'</text>'
+        +'<rect x="120" y="'+y+'" width="'+w+'" height="16" rx="3" fill="'+color+'"/>'
+        +'<text x="'+(122+w)+'" y="'+(y+13)+'" font-size="9" fill="#333">'+v+'</text>';
+    }).join('');
+    return '<div style="margin:10px 0 6px"><div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:4px">'+titulo+'</div>'
+      +'<svg width="360" height="'+h+'" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">'
+      +'<text x="0" y="16" font-size="10" font-weight="bold" fill="#2D6A2F"></text>'
+      +bars+'</svg></div>';
+  }
+
+  function svgBarrasMes(pm, color, titulo) {
+    var keys = Object.keys(pm).sort();
+    if(!keys.length) return '';
+    var max  = Math.max.apply(null, Object.values(pm));
+    var bw   = Math.min(Math.floor(300/keys.length)-4, 40);
+    var svgH = 100;
+    var rects = keys.map(function(k,i) {
+      var v = pm[k], barH = max?Math.round(v/max*60):0;
+      var x = 10 + i*(bw+4), y = 70-barH;
+      var lbl = k.slice(5); // MM
+      return '<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+barH+'" rx="2" fill="'+color+'"/>'
+        +'<text x="'+(x+bw/2)+'" y="86" font-size="8" text-anchor="middle" fill="#555">'+lbl+'</text>'
+        +'<text x="'+(x+bw/2)+'" y="'+(y-3)+'" font-size="8" text-anchor="middle" fill="#333">'+v+'</text>';
+    }).join('');
+    return '<div style="margin:10px 0 6px"><div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:4px">'+titulo+'</div>'
+      +'<svg width="340" height="'+svgH+'" xmlns="http://www.w3.org/2000/svg">'+rects+'</svg></div>';
+  }
+
+  // ── Análisis textual automático ─────────────────────────────────
+  function analisisOrdenes(pool) {
+    if(!pool.length) return '';
+    var pm = {};
+    pool.forEach(function(o){var m=o.fecha.slice(0,7);pm[m]=(pm[m]||0)+1;});
+    var meses = Object.keys(pm).sort();
+    var ultimo = pm[meses[meses.length-1]]||0;
+    var anterior = meses.length>1 ? pm[meses[meses.length-2]]||0 : null;
+    var tendencia = anterior===null ? '' : ultimo>anterior ? '↑ subió un '+Math.round((ultimo-anterior)/anterior*100)+'% respecto al mes anterior' : ultimo<anterior ? '↓ bajó un '+Math.round((anterior-ultimo)/anterior*100)+'% respecto al mes anterior' : '→ igual que el mes anterior';
+    var basTotal = pool.reduce(function(s,o){return s+(o.items||[]).filter(function(i){return i.tipo==='Basural';}).length;},0);
+    var basXOrd  = pool.length ? Math.round(basTotal/pool.length) : 0;
+    var lines = [
+      'El período seleccionado registró <b>'+pool.length+' órdenes de servicio</b> con un total de <b>'+basTotal+' intervenciones en basurales</b> (promedio '+basXOrd+' por orden).',
+    ];
+    if(tendencia) lines.push('Tendencia: '+tendencia+'.');
+    if(meses.length>1) {
+      var maxMes=meses.reduce(function(a,b){return pm[a]>=pm[b]?a:b;});
+      lines.push('El mes con mayor actividad fue <b>'+maxMes+'</b> con '+pm[maxMes]+' órdenes.');
+    }
+    return '<div style="background:#EAF3DE;border-left:3px solid #2D6A2F;padding:8px 10px;border-radius:0 6px 6px 0;font-size:10px;line-height:1.6;margin-bottom:8px">'+lines.join(' ')+'</div>';
+  }
+
+  function analisisFisc(datos) {
+    if(!datos.length) return '';
+    var conE = datos.filter(function(r){return r['Con expediente']==='Sí';}).length;
+    var sinE = datos.length - conE;
+    var pct  = Math.round(conE/datos.length*100);
+    var mots = {};
+    datos.forEach(function(r){var m=r['Categoría']||'Otro';mots[m]=(mots[m]||0)+1;});
+    var topMot = Object.keys(mots).reduce(function(a,b){return mots[a]>=mots[b]?a:b;});
+    var lines = [
+      'Se labraron <b>'+datos.length+' actas de infracción</b> en el período.',
+      'El <b>'+pct+'% ('+conE+')</b> tienen expediente administrativo formalizado; '+sinE+' tramitan por vía de Fiscalía Ambiental.',
+      'El motivo más frecuente fue <b>"'+topMot+'"</b> con '+mots[topMot]+' actas ('+Math.round(mots[topMot]/datos.length*100)+'%).',
+    ];
+    var doms = datos.flatMap(function(r){return (r['Dominios']||'').split(',').map(function(d){return d.trim();}).filter(Boolean);});
+    if(doms.length) lines.push(doms.length+' vehículos identificados por dominio.');
+    return '<div style="background:#FFF8E1;border-left:3px solid #FF8F00;padding:8px 10px;border-radius:0 6px 6px 0;font-size:10px;line-height:1.6;margin-bottom:8px">'+lines.join(' ')+'</div>';
+  }
+
+  // ── Generar bloques por sección ─────────────────────────────────
+  var bloques = secciones.map(function(k) {
     var tit = DL_SECCIONES[k].label;
 
-    // KPIs resumen
-    var kpis = '';
-    if(k==='ordenes') {
-      var tot=datos.length, bas=datos.reduce(function(s,r){return s+(r.Basurales||0);},0);
-      kpis='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:8px 0">'
-        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#2D6A2F">'+tot+'</b><br><span style="font-size:9px">Órdenes</span></div>'
-        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#2D6A2F">'+datos.reduce(function(s,r){return s+(r.Items||0);},0)+'</b><br><span style="font-size:9px">Items totales</span></div>'
-        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#D32F2F">'+bas+'</b><br><span style="font-size:9px">Basurales</span></div>'
+    if(k==='ordenes'||k==='analytics') {
+      var pool = dlFiltrarOrdenes();
+      if(!pool.length) return '<p style="color:#888;font-size:10px">Sin órdenes en el período seleccionado.</p>';
+      var pm={}, basM={};
+      pool.forEach(function(o){
+        var m=o.fecha.slice(0,7);
+        pm[m]=(pm[m]||0)+1;
+        basM[m]=(basM[m]||0)+(o.items||[]).filter(function(i){return i.tipo==='Basural';}).length;
+      });
+      var kpis='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin:8px 0">'
+        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:20px;color:#2D6A2F">'+pool.length+'</b><br><span style="font-size:9px">Órdenes</span></div>'
+        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:20px;color:#2D6A2F">'+Object.keys(pm).length+'</b><br><span style="font-size:9px">Meses</span></div>'
+        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:20px;color:#D32F2F">'+Object.values(basM).reduce(function(s,v){return s+v;},0)+'</b><br><span style="font-size:9px">Basurales</span></div>'
+        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:20px;color:#1A2E1A">'+Math.round(Object.values(basM).reduce(function(s,v){return s+v;},0)/pool.length)+'</b><br><span style="font-size:9px">Bas./orden</span></div>'
+        +'</div>';
+      return '<div style="margin-bottom:24px">'
+        +'<h2 style="font-size:13px;color:#1A2E1A;border-bottom:2px solid #2D6A2F;padding-bottom:4px;margin-bottom:8px">'+tit+'</h2>'
+        +kpis
+        +analisisOrdenes(pool)
+        +svgBarrasMes(pm,'#2D6A2F','Órdenes por mes')
+        +svgBarrasMes(basM,'#D32F2F','Basurales por mes')
         +'</div>';
     }
+
     if(k==='fiscalizacion') {
-      var tot2=datos.length, conE=datos.filter(function(r){return r['Con expediente']==='Sí';}).length;
-      kpis='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:8px 0">'
-        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#2D6A2F">'+tot2+'</b><br><span style="font-size:9px">Actas</span></div>'
-        +'<div style="background:#E8F5E9;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#1565C0">'+conE+'</b><br><span style="font-size:9px">Con expediente</span></div>'
-        +'<div style="background:#FFF8E1;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#FF8F00">'+(tot2-conE)+'</b><br><span style="font-size:9px">Vía Fiscalía</span></div>'
+      var datos = dlDatosFiscalizacion();
+      if(!datos.length) return '<p style="color:#888;font-size:10px">Sin actas en el período.</p>';
+      var conE=datos.filter(function(r){return r['Con expediente']==='Sí';}).length;
+      var pct=Math.round(conE/datos.length*100);
+      var mots={}, motPM={};
+      datos.forEach(function(r){var m=r['Categoría']||'Otro';mots[m]=(mots[m]||0)+1;});
+      var kpis='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:8px 0">'
+        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:20px;color:#2D6A2F">'+datos.length+'</b><br><span style="font-size:9px">Actas</span></div>'
+        +'<div style="background:#E8F5E9;border-radius:6px;padding:8px;text-align:center"><b style="font-size:20px;color:#1565C0">'+conE+'</b><br><span style="font-size:9px">Con expediente ('+pct+'%)</span></div>'
+        +'<div style="background:#FFF8E1;border-radius:6px;padding:8px;text-align:center"><b style="font-size:20px;color:#FF8F00">'+(datos.length-conE)+'</b><br><span style="font-size:9px">Vía Fiscalía</span></div>'
+        +'</div>';
+      var motivosArr = Object.keys(mots).map(function(k){return{label:k,val:mots[k]};}).sort(function(a,b){return b.val-a.val;});
+      return '<div style="margin-bottom:24px">'
+        +'<h2 style="font-size:13px;color:#1A2E1A;border-bottom:2px solid #FF8F00;padding-bottom:4px;margin-bottom:8px">'+tit+'</h2>'
+        +kpis
+        +analisisFisc(datos)
+        +svgBarras(motivosArr,'label','val','#FF8F00','Actas por motivo')
         +'</div>';
     }
+
     if(k==='mapa') {
-      kpis='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0">'
-        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#2D6A2F">'+datos.length+'</b><br><span style="font-size:9px">Puntos totales</span></div>'
-        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:18px;color:#D32F2F">'+datos.filter(function(r){return r.Tipo==='activo';}).length+'</b><br><span style="font-size:9px">Activos</span></div>'
+      var datos2 = dlDatosMapa();
+      if(!datos2.length) return '<p style="color:#888;font-size:10px">Sin datos de mapa.</p>';
+      var activos=datos2.filter(function(r){return r.Tipo==='activo';}).length;
+      var kpis2='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0">'
+        +'<div style="background:#EAF3DE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:20px;color:#2D6A2F">'+datos2.length+'</b><br><span style="font-size:9px">Puntos totales</span></div>'
+        +'<div style="background:#FFEBEE;border-radius:6px;padding:8px;text-align:center"><b style="font-size:20px;color:#D32F2F">'+activos+'</b><br><span style="font-size:9px">Activos</span></div>'
         +'</div>';
+      var anal='<div style="background:#EAF3DE;border-left:3px solid #2D6A2F;padding:8px 10px;border-radius:0 6px 6px 0;font-size:10px;line-height:1.6;margin-bottom:8px">'
+        +'El mapa registra <b>'+datos2.length+' puntos declarados</b>, de los cuales <b>'+activos+' están activos</b> ('+(datos2.length-activos)+' inactivos).</div>';
+      return '<div style="margin-bottom:24px">'
+        +'<h2 style="font-size:13px;color:#1A2E1A;border-bottom:2px solid #2D6A2F;padding-bottom:4px;margin-bottom:8px">'+tit+'</h2>'
+        +kpis2+anal+'</div>';
     }
 
-    // Tabla con los primeros 20 registros
-    var keys = Object.keys(datos[0]||{});
-    var tabla = '<table style="width:100%;border-collapse:collapse;font-size:9px;margin-top:8px">'
-      +'<thead><tr>'+keys.map(function(k){return '<th style="background:#2D6A2F;color:#fff;padding:5px 4px;text-align:left;white-space:nowrap">'+k+'</th>';}).join('')+'</tr></thead>'
-      +'<tbody>'+datos.slice(0,20).map(function(r,i){
-        return '<tr style="background:'+(i%2===0?'#EAF3DE':'#fff')+'">'
-          +keys.map(function(k){return '<td style="padding:4px;border-bottom:1px solid #C0DD97;vertical-align:top">'+String(r[k]||'')+'</td>';}).join('')
-          +'</tr>';
-      }).join('')
-      +(datos.length>20?'<tr><td colspan="'+keys.length+'" style="padding:5px;color:#888;font-style:italic">...y '+(datos.length-20)+' registros más</td></tr>':'')
-      +'</tbody></table>';
-
-    return '<div style="margin-bottom:20px;page-break-inside:avoid">'
-      +'<h2 style="font-size:13px;color:#1A2E1A;border-bottom:2px solid #2D6A2F;padding-bottom:4px;margin-bottom:6px">'+tit+'</h2>'
-      +kpis+tabla+'</div>';
+    if(k==='cruce') {
+      var datos3 = dlDatosCruce();
+      if(!datos3.length) return '<p style="color:#888;font-size:10px">Sin datos de cruce.</p>';
+      var top10 = datos3.filter(function(r){return (r.Frecuencia_ordenes||0)>0;}).slice(0,10);
+      var anal2='<div style="background:#EAF3DE;border-left:3px solid #1565C0;padding:8px 10px;border-radius:0 6px 6px 0;font-size:10px;line-height:1.6;margin-bottom:8px">'
+        +'<b>'+top10.length+'</b> basurales del mapa aparecen en órdenes de servicio. '
+        +(top10[0]?'El más frecuente es "'+top10[0].Basural+'" con '+top10[0].Frecuencia_ordenes+' apariciones.':'')
+        +'</div>';
+      return '<div style="margin-bottom:24px">'
+        +'<h2 style="font-size:13px;color:#1A2E1A;border-bottom:2px solid #1565C0;padding-bottom:4px;margin-bottom:8px">'+tit+'</h2>'
+        +anal2
+        +svgBarras(top10,'Basural','Frecuencia_ordenes','#1565C0','Top basurales en órdenes')
+        +'</div>';
+    }
+    return '';
   }).join('');
 
-  var html_content = '<!DOCTYPE html><html><head>'
-    +'<meta charset="UTF-8">'
-    +'<style>body{font-family:Arial,sans-serif;font-size:10px;color:#1A2E1A;margin:24px}'
-    +'h1{font-size:16px;color:#2D6A2F}h2{font-size:13px}</style>'
+  var html_content = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    +'<style>body{font-family:Arial,sans-serif;font-size:10px;color:#1A2E1A;margin:20px;line-height:1.5}'
+    +'h1{font-size:16px;color:#2D6A2F;margin:0 0 4px}h2{font-size:13px;margin:0 0 6px}'
+    +'b{font-weight:700}svg{display:block}</style>'
     +'</head><body>'
-    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:3px solid #2D6A2F;padding-bottom:10px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;border-bottom:3px solid #2D6A2F;padding-bottom:10px">'
     +'<div><h1>Secretaría de Ambiente · San Miguel de Tucumán</h1>'
-    +'<div style="font-size:11px;color:#4A6A4A">Informe de gestión ambiental · Generado: '+fecha+'</div>'
-    +'<div style="font-size:10px;color:#4A6A4A">Período: '+rango+'</div></div>'
-    +'<div style="font-size:28px">🌿</div></div>'
+    +'<div style="font-size:11px;color:#4A6A4A">Informe de gestión ambiental</div>'
+    +'<div style="font-size:10px;color:#2D6A2F;font-weight:700">📅 Período: '+perLabel+'</div>'
+    +'<div style="font-size:9px;color:#888">Generado: '+fechaGen+'</div></div>'
+    +'<div style="font-size:36px">🌿</div></div>'
     +bloques
-    +'<div style="margin-top:20px;font-size:9px;color:#888;border-top:1px solid #ddd;padding-top:8px">'
-    +'Dashboard Ambiental SMT · '+fecha+'</div>'
+    +'<div style="margin-top:16px;font-size:9px;color:#888;border-top:1px solid #ddd;padding-top:6px">Dashboard Ambiental SMT · '+fechaGen+'</div>'
     +'</body></html>';
 
-  if(typeof html2pdf==='undefined'){
-    alert('Cargando PDF… intentá de nuevo en 2 segundos');
-    return;
-  }
   var opt = {
-    margin: [10,10,10,10],
-    filename: filename+'.pdf',
-    image: {type:'jpeg', quality:0.95},
-    html2canvas: {scale:2, useCORS:true, logging:false},
-    jsPDF: {unit:'mm', format:'a4', orientation:'portrait'}
+    margin:[8,8,8,8], filename:filename+'.pdf',
+    image:{type:'jpeg',quality:0.95},
+    html2canvas:{scale:2, useCORS:true, logging:false, allowTaint:true},
+    jsPDF:{unit:'mm', format:'a4', orientation:'portrait'}
   };
-  // Pasar HTML como string — más confiable que elemento DOM oculto
   html2pdf().set(opt).from(html_content).save();
 }
 
