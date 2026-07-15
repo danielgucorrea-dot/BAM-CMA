@@ -284,6 +284,7 @@ button{cursor:pointer;font-family:inherit}
   <button class="nav-btn" id="nav-cruce" onclick="showView('cruce')"><span class="nav-icon">🔀</span>CRUCE</button>
   <button class="nav-btn" id="nav-mapa" onclick="showView('mapa')"><span class="nav-icon">🗺️</span>MAPA</button>
   <button class="nav-btn" id="nav-fiscalizacion" onclick="showView('fiscalizacion')"><span class="nav-icon">⚖️</span>ACTAS</button>
+  <button class="nav-btn" id="nav-incumpl" onclick="showView('incumpl')"><span class="nav-icon">⚠️</span>INCUMPL.</button>
   <button class="nav-btn" id="nav-import" onclick="showView('import')"><span class="nav-icon">⬆</span>IMPORT</button>
 </nav>
 
@@ -1290,11 +1291,11 @@ function selectDayClear() {
 // NAVIGATION
 // ══════════════════════════════════════════
 function showView(name) {
-  ['home','order','analytics','import','cruce','mapa','fiscalizacion'].forEach(v => {
+  ['home','order','analytics','import','cruce','mapa','fiscalizacion','incumpl'].forEach(v => {
     const el = document.getElementById('v-'+v);
     if (el) el.classList.toggle('hidden', v !== name);
   });
-  ['home','analytics','import','cruce','mapa','fiscalizacion'].forEach(v => {
+  ['home','analytics','import','cruce','mapa','fiscalizacion','incumpl'].forEach(v => {
     const b = document.getElementById('nav-'+v);
     if (b) b.classList.toggle('active', v === name);
   });
@@ -1304,6 +1305,7 @@ function showView(name) {
   if (name === 'cruce')  { requestAnimationFrame(renderCruceView); return; }
   if (name === 'mapa')           { requestAnimationFrame(renderMapaView); return; }
   if (name === 'fiscalizacion')  { requestAnimationFrame(renderFiscalizacion); return; }
+  if (name === 'incumpl')        { requestAnimationFrame(renderIncumpl); return; }
   if (name === 'analytics') {
     requestAnimationFrame(() => {
       const keys = getMonthKeys();
@@ -4400,7 +4402,184 @@ function dlPDF(secciones, filename) {
     +'<div style="font-size:36px">🌿</div></div>'
     +bloques
     +'<div style="margin-top:16px;font-size:9px;color:#888;border-top:1px solid #ddd;padding-top:6px">Dashboard Ambiental SMT · '+fechaGen+'</div>'
-    +'</body></html>';
+    +'
+<!-- ══ INCUMPLIMIENTOS VIEW ══ -->
+<div id="v-incumpl" class="hidden">
+  <div class="hdr" style="position:relative">
+    <button class="btn-dl" onclick="dlOpen('incumpl')" style="position:static;font-size:10px;padding:4px 10px;float:right">📥</button>
+    <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.1em;margin-bottom:2px">SECRETARÍA DE AMBIENTE · SMT</div>
+    <div class="hdr-title">⚠️ Incumplimientos</div>
+    <div class="hdr-sub" id="inc-sub">Numerales e ítems quincenales 2026</div>
+  </div>
+
+  <!-- KPIs -->
+  <div style="padding:10px 12px 0">
+    <div class="stats-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
+      <div class="stat"><div class="stat-val" id="inc-kpi-dias" style="color:#2D6A2F">126</div><div class="stat-lbl">DÍAS</div></div>
+      <div class="stat"><div class="stat-val" id="inc-kpi-con" style="color:#D32F2F">24</div><div class="stat-lbl">CON INCUMPL.</div></div>
+      <div class="stat"><div class="stat-val" id="inc-kpi-items" style="color:#FF8F00">416</div><div class="stat-lbl">TOTAL ÍTEMS</div></div>
+      <div class="stat"><div class="stat-val" id="inc-kpi-sin" style="color:#4A6A4A">102</div><div class="stat-lbl">SIN NOVEDAD</div></div>
+    </div>
+  </div>
+
+  <!-- Filtro quincena -->
+  <div style="padding:8px 12px 0">
+    <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-bottom:5px;letter-spacing:.06em">QUINCENA</div>
+    <div id="inc-quinc-chips" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+  </div>
+
+  <!-- Por numeral -->
+  <div style="padding:8px 12px 0">
+    <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.06em">INCUMPLIMIENTOS POR NUMERAL</div>
+    <div id="inc-por-numeral" style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:10px"></div>
+  </div>
+
+  <!-- Tendencia -->
+  <div style="padding:8px 12px 0">
+    <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.06em">TENDENCIA POR QUINCENA</div>
+    <div id="inc-tendencia" style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:10px"></div>
+  </div>
+
+  <!-- Detalle -->
+  <div style="padding:8px 12px 80px">
+    <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.06em">DÍAS CON INCUMPLIMIENTOS</div>
+    <div id="inc-tabla"></div>
+  </div>
+</div>
+
+<script>
+var INCUMPL_DATA = null;
+var _incLoading = false;
+
+async function loadIncumplData() {
+  if (INCUMPL_DATA) return INCUMPL_DATA;
+  if (_incLoading) return null;
+  _incLoading = true;
+  try {
+    const r = await fetch('incumplimientos.json');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    INCUMPL_DATA = await r.json();
+    _incLoading = false;
+    return INCUMPL_DATA;
+  } catch(e) {
+    console.error('Error cargando incumplimientos.json:', e);
+    _incLoading = false;
+    return null;
+  }
+};
+var INC_NUM = ["3.4.2-01", "3.4.2-03", "3.4.2-08", "3.4.3-03", "3.4.3-05"];
+var INC_NOM = {"3.4.2-01": "Presentaci\u00f3n informes", "3.4.2-03": "Cobertura de barrido", "3.4.2-08": "Recolecci\u00f3n domiciliaria", "3.4.3-03": "Control volcaderos", "3.4.3-05": "Limpieza de cestos"};
+var INC_COL = ["#2D6A2F", "#1565C0", "#D32F2F", "#FF8F00", "#795548"];
+var incFiltro = '';
+
+async function renderIncumpl() {
+  const data = await loadIncumplData();
+  if (!data) {
+    document.getElementById('inc-sub').textContent = '⚠ No se pudo cargar incumplimientos.json';
+    return;
+  }
+  INCUMPL_DATA = data;
+  var quincenas = [...new Set(INCUMPL_DATA.map(function(r){return r.quincena;}))]
+    .filter(function(q){return q&&q.trim();});
+  var chips = document.getElementById('inc-quinc-chips');
+  if(chips) {
+    chips.innerHTML = '';
+    var mk = function(val,label) {
+      var b=document.createElement('button');
+      b.className='chip'+(incFiltro===val?' active':'');
+      b.textContent=label;
+      b.addEventListener('click',function(){incSetQ(val);});
+      chips.appendChild(b);
+    };
+    mk('','Todas');
+    quincenas.forEach(function(q){
+      mk(q, q.replace('1º Quincena','1ºQ').replace('2º Quincena','2ºQ'));
+    });
+  }
+  incRender();
+}
+
+function incSetQ(q) {
+  incFiltro=q;
+  document.querySelectorAll('#inc-quinc-chips button').forEach(function(b){
+    b.classList.toggle('active',
+      (!q && b.textContent==='Todas') ||
+      (q && b.textContent===q.replace('1º Quincena','1ºQ').replace('2º Quincena','2ºQ'))
+    );
+  });
+  incRender();
+}
+
+function incRender() {
+  var pool = incFiltro ? INCUMPL_DATA.filter(function(r){return r.quincena===incFiltro;}) : INCUMPL_DATA;
+  var tot=pool.length, con=pool.filter(function(r){return r.total>0;}).length;
+  var items=pool.reduce(function(s,r){return s+r.total;},0);
+  var g=function(id){return document.getElementById(id);};
+  if(g('inc-kpi-dias'))  g('inc-kpi-dias').textContent=tot;
+  if(g('inc-kpi-con'))   g('inc-kpi-con').textContent=con;
+  if(g('inc-kpi-items')) g('inc-kpi-items').textContent=items;
+  if(g('inc-kpi-sin'))   g('inc-kpi-sin').textContent=tot-con;
+  if(g('inc-sub'))       g('inc-sub').textContent=(incFiltro||'Todas las quincenas')+' · '+items+' ítems';
+
+  // Por numeral
+  var maxN=1, totN={};
+  INC_NUM.forEach(function(n){totN[n]=pool.reduce(function(s,r){return s+(r[n]||0);},0);if(totN[n]>maxN)maxN=totN[n];});
+  var numEl=g('inc-por-numeral');
+  if(numEl) numEl.innerHTML=INC_NUM.map(function(n,i){
+    var v=totN[n],w=Math.round(v/maxN*100),col=INC_COL[i],pct=items?Math.round(v/items*100):0;
+    return '<div style="margin-bottom:8px">'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:2px">'
+      +'<span style="font-size:10px;font-weight:600"><b>'+n+'</b> — '+INC_NOM[n]+'</span>'
+      +'<span style="font-size:10px;font-weight:700;color:'+col+'">'+v+' ('+pct+'%)</span></div>'
+      +'<div style="background:#C0DD97;border-radius:4px;height:10px;overflow:hidden">'
+      +'<div style="height:100%;background:'+col+';border-radius:4px;width:'+w+'%;transition:width .5s"></div></div></div>';
+  }).join('');
+
+  // Tendencia quincenas
+  var pq={};
+  pool.forEach(function(r){var q=r.quincena||'Sin quincena';pq[q]=(pq[q]||0)+r.total;});
+  var maxQ=Math.max.apply(null,Object.values(pq).concat([1]));
+  var tEl=g('inc-tendencia');
+  if(tEl) tEl.innerHTML=Object.keys(pq).map(function(q){
+    var v=pq[q],w=Math.round(v/maxQ*100),col=v>50?'#D32F2F':v>10?'#FF8F00':'#2D6A2F';
+    var lbl=q.replace('1º Quincena','1ºQ').replace('2º Quincena','2ºQ');
+    return '<div style="display:flex;align-items:center;margin-bottom:5px;gap:8px">'
+      +'<div style="font-size:10px;font-weight:600;width:90px;flex-shrink:0;color:#1A2E1A">'+lbl+'</div>'
+      +'<div style="flex:1;background:#C0DD97;border-radius:4px;height:13px;overflow:hidden">'
+      +'<div style="height:100%;background:'+col+';border-radius:4px;width:'+w+'%;transition:width .5s"></div></div>'
+      +'<b style="font-size:11px;color:'+col+';width:28px;text-align:right">'+v+'</b></div>';
+  }).join('')||'<span style="font-size:11px;color:#4A6A4A">Sin incumplimientos</span>';
+
+  // Tabla detalle — solo días CON incumplimientos
+  var conInc=pool.filter(function(r){return r.total>0;});
+  var sinInc=pool.filter(function(r){return r.total===0;});
+  var tabEl=g('inc-tabla');
+  if(tabEl) {
+    if(!conInc.length) {
+      tabEl.innerHTML='<div style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:12px;text-align:center;font-size:12px;color:#2D6A2F;font-weight:700">✅ Sin incumplimientos en el período</div>';
+      return;
+    }
+    tabEl.innerHTML=conInc.map(function(r){
+      var cols=INC_NUM.map(function(n,i){
+        var v=r[n]||0;
+        return '<div style="text-align:center;padding:4px 2px;min-width:40px">'
+          +(v>0?'<b style="color:'+INC_COL[i]+';font-size:13px">'+v+'</b>':'<span style="color:#ccc">—</span>')
+          +'<div style="font-size:7px;color:#888">'+n+'</div></div>';
+      }).join('');
+      var obs=r.obs?'<span style="font-size:9px;color:#888"> · '+r.obs+'</span>':'';
+      return '<div style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:8px 10px;margin-bottom:6px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+        +'<div><div style="font-size:11px;font-weight:700;color:#1A2E1A">'+r.fecha+'</div>'
+        +'<div style="font-size:10px;color:#4A6A4A">Ord. '+r.orden+' · Acta '+r.acta+obs+'</div></div>'
+        +'<div style="background:#D32F2F;color:#fff;border-radius:6px;padding:3px 10px;font-size:14px;font-weight:900">'+r.total+'</div></div>'
+        +'<div style="display:flex;gap:4px;flex-wrap:wrap">'+cols+'</div></div>';
+    }).join('')
+    +(sinInc.length?'<div style="text-align:center;padding:8px;font-size:10px;color:#4A6A4A">✅ '+sinInc.length+' días sin incumplimientos</div>':'');
+  }
+}
+</script>
+
+</body></html>';
 
   var opt = {
     margin:[8,8,8,8], filename:filename+'.pdf',
@@ -4461,6 +4640,164 @@ function dlExecute() {
     }
     document.getElementById('dl-execute').disabled = false;
   }, 50);
+}
+</script>
+
+
+<!-- ══ INCUMPLIMIENTOS VIEW ══ -->
+<div id="v-incumpl" class="hidden">
+  <div class="hdr" style="position:relative">
+    <button class="btn-dl" onclick="dlOpen('incumpl')" style="position:static;font-size:10px;padding:4px 10px;float:right">📥</button>
+    <div style="font-size:9px;color:rgba(255,255,255,.6);letter-spacing:.1em;margin-bottom:2px">SECRETARÍA DE AMBIENTE · SMT</div>
+    <div class="hdr-title">⚠️ Incumplimientos</div>
+    <div class="hdr-sub" id="inc-sub">Numerales e ítems quincenales 2026</div>
+  </div>
+
+  <!-- KPIs -->
+  <div style="padding:10px 12px 0">
+    <div class="stats-row" style="grid-template-columns:1fr 1fr 1fr 1fr">
+      <div class="stat"><div class="stat-val" id="inc-kpi-dias" style="color:#2D6A2F">126</div><div class="stat-lbl">DÍAS</div></div>
+      <div class="stat"><div class="stat-val" id="inc-kpi-con" style="color:#D32F2F">24</div><div class="stat-lbl">CON INCUMPL.</div></div>
+      <div class="stat"><div class="stat-val" id="inc-kpi-items" style="color:#FF8F00">416</div><div class="stat-lbl">TOTAL ÍTEMS</div></div>
+      <div class="stat"><div class="stat-val" id="inc-kpi-sin" style="color:#4A6A4A">102</div><div class="stat-lbl">SIN NOVEDAD</div></div>
+    </div>
+  </div>
+
+  <!-- Filtro quincena -->
+  <div style="padding:8px 12px 0">
+    <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-bottom:5px;letter-spacing:.06em">QUINCENA</div>
+    <div id="inc-quinc-chips" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+  </div>
+
+  <!-- Por numeral -->
+  <div style="padding:8px 12px 0">
+    <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.06em">INCUMPLIMIENTOS POR NUMERAL</div>
+    <div id="inc-por-numeral" style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:10px"></div>
+  </div>
+
+  <!-- Tendencia -->
+  <div style="padding:8px 12px 0">
+    <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.06em">TENDENCIA POR QUINCENA</div>
+    <div id="inc-tendencia" style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:10px"></div>
+  </div>
+
+  <!-- Detalle -->
+  <div style="padding:8px 12px 80px">
+    <div style="font-size:10px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.06em">DÍAS CON INCUMPLIMIENTOS</div>
+    <div id="inc-tabla"></div>
+  </div>
+</div>
+
+<script>
+var INC_NUM = ["3.4.2-01", "3.4.2-03", "3.4.2-08", "3.4.3-03", "3.4.3-05"];
+var INC_NOM = {"3.4.2-01": "Presentaci\u00f3n informes", "3.4.2-03": "Cobertura de barrido", "3.4.2-08": "Recolecci\u00f3n domiciliaria", "3.4.3-03": "Control volcaderos", "3.4.3-05": "Limpieza de cestos"};
+var INC_COL = ["#2D6A2F", "#1565C0", "#D32F2F", "#FF8F00", "#795548"];
+var incFiltro = '';
+
+async function renderIncumpl() {
+  const data = await loadIncumplData();
+  if (!data) {
+    document.getElementById('inc-sub').textContent = '⚠ No se pudo cargar incumplimientos.json';
+    return;
+  }
+  INCUMPL_DATA = data;
+  var quincenas = [...new Set(INCUMPL_DATA.map(function(r){return r.quincena;}))]
+    .filter(function(q){return q&&q.trim();});
+  var chips = document.getElementById('inc-quinc-chips');
+  if(chips) {
+    chips.innerHTML = '';
+    var mk = function(val,label) {
+      var b=document.createElement('button');
+      b.className='chip'+(incFiltro===val?' active':'');
+      b.textContent=label;
+      b.addEventListener('click',function(){incSetQ(val);});
+      chips.appendChild(b);
+    };
+    mk('','Todas');
+    quincenas.forEach(function(q){
+      mk(q, q.replace('1º Quincena','1ºQ').replace('2º Quincena','2ºQ'));
+    });
+  }
+  incRender();
+}
+
+function incSetQ(q) {
+  incFiltro=q;
+  document.querySelectorAll('#inc-quinc-chips button').forEach(function(b){
+    b.classList.toggle('active',
+      (!q && b.textContent==='Todas') ||
+      (q && b.textContent===q.replace('1º Quincena','1ºQ').replace('2º Quincena','2ºQ'))
+    );
+  });
+  incRender();
+}
+
+function incRender() {
+  var pool = incFiltro ? INCUMPL_DATA.filter(function(r){return r.quincena===incFiltro;}) : INCUMPL_DATA;
+  var tot=pool.length, con=pool.filter(function(r){return r.total>0;}).length;
+  var items=pool.reduce(function(s,r){return s+r.total;},0);
+  var g=function(id){return document.getElementById(id);};
+  if(g('inc-kpi-dias'))  g('inc-kpi-dias').textContent=tot;
+  if(g('inc-kpi-con'))   g('inc-kpi-con').textContent=con;
+  if(g('inc-kpi-items')) g('inc-kpi-items').textContent=items;
+  if(g('inc-kpi-sin'))   g('inc-kpi-sin').textContent=tot-con;
+  if(g('inc-sub'))       g('inc-sub').textContent=(incFiltro||'Todas las quincenas')+' · '+items+' ítems';
+
+  // Por numeral
+  var maxN=1, totN={};
+  INC_NUM.forEach(function(n){totN[n]=pool.reduce(function(s,r){return s+(r[n]||0);},0);if(totN[n]>maxN)maxN=totN[n];});
+  var numEl=g('inc-por-numeral');
+  if(numEl) numEl.innerHTML=INC_NUM.map(function(n,i){
+    var v=totN[n],w=Math.round(v/maxN*100),col=INC_COL[i],pct=items?Math.round(v/items*100):0;
+    return '<div style="margin-bottom:8px">'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:2px">'
+      +'<span style="font-size:10px;font-weight:600"><b>'+n+'</b> — '+INC_NOM[n]+'</span>'
+      +'<span style="font-size:10px;font-weight:700;color:'+col+'">'+v+' ('+pct+'%)</span></div>'
+      +'<div style="background:#C0DD97;border-radius:4px;height:10px;overflow:hidden">'
+      +'<div style="height:100%;background:'+col+';border-radius:4px;width:'+w+'%;transition:width .5s"></div></div></div>';
+  }).join('');
+
+  // Tendencia quincenas
+  var pq={};
+  pool.forEach(function(r){var q=r.quincena||'Sin quincena';pq[q]=(pq[q]||0)+r.total;});
+  var maxQ=Math.max.apply(null,Object.values(pq).concat([1]));
+  var tEl=g('inc-tendencia');
+  if(tEl) tEl.innerHTML=Object.keys(pq).map(function(q){
+    var v=pq[q],w=Math.round(v/maxQ*100),col=v>50?'#D32F2F':v>10?'#FF8F00':'#2D6A2F';
+    var lbl=q.replace('1º Quincena','1ºQ').replace('2º Quincena','2ºQ');
+    return '<div style="display:flex;align-items:center;margin-bottom:5px;gap:8px">'
+      +'<div style="font-size:10px;font-weight:600;width:90px;flex-shrink:0;color:#1A2E1A">'+lbl+'</div>'
+      +'<div style="flex:1;background:#C0DD97;border-radius:4px;height:13px;overflow:hidden">'
+      +'<div style="height:100%;background:'+col+';border-radius:4px;width:'+w+'%;transition:width .5s"></div></div>'
+      +'<b style="font-size:11px;color:'+col+';width:28px;text-align:right">'+v+'</b></div>';
+  }).join('')||'<span style="font-size:11px;color:#4A6A4A">Sin incumplimientos</span>';
+
+  // Tabla detalle — solo días CON incumplimientos
+  var conInc=pool.filter(function(r){return r.total>0;});
+  var sinInc=pool.filter(function(r){return r.total===0;});
+  var tabEl=g('inc-tabla');
+  if(tabEl) {
+    if(!conInc.length) {
+      tabEl.innerHTML='<div style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:12px;text-align:center;font-size:12px;color:#2D6A2F;font-weight:700">✅ Sin incumplimientos en el período</div>';
+      return;
+    }
+    tabEl.innerHTML=conInc.map(function(r){
+      var cols=INC_NUM.map(function(n,i){
+        var v=r[n]||0;
+        return '<div style="text-align:center;padding:4px 2px;min-width:40px">'
+          +(v>0?'<b style="color:'+INC_COL[i]+';font-size:13px">'+v+'</b>':'<span style="color:#ccc">—</span>')
+          +'<div style="font-size:7px;color:#888">'+n+'</div></div>';
+      }).join('');
+      var obs=r.obs?'<span style="font-size:9px;color:#888"> · '+r.obs+'</span>':'';
+      return '<div style="background:#EAF3DE;border:1px solid #C0DD97;border-radius:8px;padding:8px 10px;margin-bottom:6px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+        +'<div><div style="font-size:11px;font-weight:700;color:#1A2E1A">'+r.fecha+'</div>'
+        +'<div style="font-size:10px;color:#4A6A4A">Ord. '+r.orden+' · Acta '+r.acta+obs+'</div></div>'
+        +'<div style="background:#D32F2F;color:#fff;border-radius:6px;padding:3px 10px;font-size:14px;font-weight:900">'+r.total+'</div></div>'
+        +'<div style="display:flex;gap:4px;flex-wrap:wrap">'+cols+'</div></div>';
+    }).join('')
+    +(sinInc.length?'<div style="text-align:center;padding:8px;font-size:10px;color:#4A6A4A">✅ '+sinInc.length+' días sin incumplimientos</div>':'');
+  }
 }
 </script>
 
