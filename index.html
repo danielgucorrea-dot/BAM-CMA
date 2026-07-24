@@ -2607,11 +2607,7 @@ function renderCruceView() {
   document.getElementById('map-status').textContent = `✓ ${mapData.length} puntos cargados`;
   document.getElementById('cruce-sub').textContent = `${mapData.length} puntos en mapa`;
   renderCruceYearBoxes();
-  if (cruceData) {
-    renderCruceResults();
-  } else if (orders.length && mapData.length) {
-    runCrossRef();
-  }
+  if (cruceData) renderCruceResults();
 }
 
 // ── Selectores de período ──
