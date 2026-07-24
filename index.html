@@ -2600,12 +2600,12 @@ async function handleMapCSV(file) {
 
 function renderCruceView() {
   if (!mapData.length) {
-    // Datos aún no cargados — reintentar cuando estén listos
     setTimeout(renderCruceView, 500);
     return;
   }
   document.getElementById('cruce-period-wrap').classList.remove('hidden');
   document.getElementById('cruce-upload').style.display = 'none';
+  document.getElementById('map-status').textContent = `✓ ${mapData.length} puntos cargados`;
   document.getElementById('cruce-sub').textContent = `${mapData.length} puntos en mapa`;
   renderCruceYearBoxes();
   if (cruceData) renderCruceResults();
