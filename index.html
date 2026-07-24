@@ -2594,15 +2594,10 @@ async function handleMapCSV(file) {
 }
 
 function renderCruceView() {
+  // Si mapData no cargó aún, esperar a que cargue el backup
   if (!mapData.length) {
-    st_get('mapdata').then(r => {
-      if (r) {
-        const raw = JSON.parse(r.value);
-        mapData = raw.map(p => ({...p, norm: normAddr(p.nombre)}));
-        document.getElementById('map-status').textContent = `✓ ${mapData.length} puntos cargados`;
-        document.getElementById('cruce-sub').textContent = `${mapData.length} puntos en mapa`;
-        renderCruceView();
-      }
+    ensureData().then(() => {
+      if (mapData.length) renderCruceView();
     });
     return;
   }
@@ -3174,6 +3169,28 @@ ensureData();
       <div style="font-size:11px;font-weight:700;color:#D32F2F;margin-bottom:4px;letter-spacing:.05em">🔴 BASURALES SIN PUNTO VERDE CERCANO</div>
       <div id="cr-sin-pv" style="font-size:10px;color:#4A6A4A">Calculando…</div>
     </div>
+
+    <!-- Basurales sin órdenes -->
+    <div style="padding:6px 12px 8px">
+      <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:6px;letter-spacing:.05em">
+        📋 BASURALES DECLARADOS SIN ÓRDENES DE SERVICIO
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+        <div style="background:#FFEBEE;border:2px solid #D32F2F;border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:20px;font-weight:900;color:#D32F2F" id="cr-sin-ord-count">…</div>
+          <div style="font-size:9px;font-weight:700">Sin órdenes</div>
+        </div>
+        <div style="background:#E8F5E9;border:2px solid #2D6A2F;border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:20px;font-weight:900;color:#2D6A2F" id="cr-con-ord-count">…</div>
+          <div style="font-size:9px;font-weight:700">Con órdenes</div>
+        </div>
+        <div style="background:#EAF3DE;border:2px solid #C0DD97;border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:20px;font-weight:900;color:#1A2E1A" id="cr-total-bas-count">…</div>
+          <div style="font-size:9px;font-weight:700">Total</div>
+        </div>
+      </div>
+      <div id="cr-sin-ord-list" style="font-size:10px;color:#4A6A4A">Activá el tab Cruce para calcular</div>
+    </div>
   </div>
 
   <!-- Totales generales -->
@@ -3433,6 +3450,50 @@ function pvMakeWorker() {
     crUpdateLista();
   }
 
+  function crCalcSinOrdenes() {
+    if (typeof mapData==='undefined'||!mapData.length) return;
+    if (typeof orders==='undefined'||!orders.length) return;
+    var ubicSet={};
+    orders.forEach(function(o){
+      (o.items||[]).forEach(function(i){
+        if(i.tipo!=='Basural'&&i.tipo!=='Volcadero') return;
+        var k=typeof normAddr==='function'?normAddr(i.ubic||''):(i.ubic||'').toLowerCase().trim();
+        ubicSet[k]=(ubicSet[k]||0)+1;
+      });
+    });
+    var sinOrd=[], conOrd=[];
+    mapData.forEach(function(p){
+      var bn=typeof normAddr==='function'?normAddr(p.nombre||''):(p.nombre||'').toLowerCase().trim();
+      var words=bn.split(/\s+/).filter(function(w){return w.length>3;});
+      var freq=ubicSet[bn]||0;
+      if(!freq){
+        Object.keys(ubicSet).forEach(function(uk){
+          var uw=uk.split(/\s+/).filter(function(w){return w.length>3;});
+          var comun=words.filter(function(w){return uw.indexOf(w)>=0;}).length;
+          if(comun>=2) freq=Math.max(freq,ubicSet[uk]);
+        });
+      }
+      if(freq>0) conOrd.push({n:p.nombre,f:freq});
+      else sinOrd.push(p.nombre||'Sin nombre');
+    });
+    var g=function(id){return document.getElementById(id);};
+    if(g('cr-sin-ord-count'))   g('cr-sin-ord-count').textContent=sinOrd.length;
+    if(g('cr-con-ord-count'))   g('cr-con-ord-count').textContent=conOrd.length;
+    if(g('cr-total-bas-count')) g('cr-total-bas-count').textContent=mapData.length;
+    var listEl=g('cr-sin-ord-list');
+    if(listEl){
+      if(!sinOrd.length){
+        listEl.innerHTML='<span style="color:#2D6A2F">✅ Todos los basurales aparecen en al menos una orden</span>';
+      } else {
+        listEl.innerHTML=sinOrd.slice(0,15).map(function(n){
+          return '<div style="display:flex;align-items:center;padding:4px 0;border-bottom:1px solid #FFCDD2">'
+            +'<span style="color:#D32F2F;margin-right:6px">🔴</span>'
+            +'<span style="font-size:10px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+n+'</span></div>';
+        }).join('')+(sinOrd.length>15?'<div style="font-size:9px;color:#888;padding-top:4px">...y '+(sinOrd.length-15)+' más</div>':'');
+      }
+    }
+  }
+
   function crUpdateLista() {
     var el = document.getElementById('cr-sin-pv');
     if (!el) return;
@@ -3474,6 +3535,7 @@ function pvMakeWorker() {
     if(g('cr-pct-r')) g('cr-pct-r').textContent='Sin cobertura '+pr+'%';
     _crListas.v = d.listV||[]; _crListas.a = d.listA||[]; _crListas.r = d.sinPv||[];
     crUpdateLista();
+    crCalcSinOrdenes();
     // Top: recalcular on-demand si está vacío
     var fqMap = window._mapaFreqMap || {};
     if (!Object.keys(fqMap).length && typeof orders!=='undefined' && orders.length) {
