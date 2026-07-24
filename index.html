@@ -491,6 +491,7 @@ async function loadAll() {
     }
   } catch(e) { console.error('loadAll:', e); }
   renderHome();
+  if (currentView === 'cruce' && mapData.length) renderCruceView();
 }
 
 async function saveAllOrders() {
