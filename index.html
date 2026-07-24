@@ -474,11 +474,7 @@ async function restoreFromBackup(backup) {
   }
   orders.sort((a,b) => b.fecha.localeCompare(a.fecha));
   renderHome();
-  // Si el usuario entró al CRUCE antes de que cargaran los datos, calcularlo ahora
-  if (currentView === 'cruce' && mapData.length && orders.length && !cruceData) {
-    renderCruceYearBoxes();
-    runCrossRef();
-  }
+  if (currentView === 'cruce' && mapData.length) renderCruceView();
 }
 
 async function loadAll() {
@@ -491,7 +487,6 @@ async function loadAll() {
     }
   } catch(e) { console.error('loadAll:', e); }
   renderHome();
-  if (currentView === 'cruce' && mapData.length) renderCruceView();
 }
 
 async function saveAllOrders() {
@@ -1324,7 +1319,7 @@ function showView(name) {
   currentView = name;
   if (name === 'home')   { renderHome(); return; }
   if (name === 'import') { requestAnimationFrame(renderImportSummary); return; }
-  if (name === 'cruce')  { requestAnimationFrame(() => renderCruceView()); return; }
+  if (name === 'cruce')  { requestAnimationFrame(renderCruceView); return; }
   if (name === 'mapa')           { requestAnimationFrame(renderMapaView); return; }
   if (name === 'fiscalizacion')  { requestAnimationFrame(renderFiscalizacion); return; }
   if (name === 'analytics') {
@@ -2600,8 +2595,11 @@ async function handleMapCSV(file) {
 }
 
 function renderCruceView() {
+  // Si mapData no cargó aún, esperar a que cargue el backup
   if (!mapData.length) {
-    setTimeout(renderCruceView, 500);
+    ensureData().then(() => {
+      if (mapData.length) renderCruceView();
+    });
     return;
   }
   document.getElementById('cruce-period-wrap').classList.remove('hidden');
