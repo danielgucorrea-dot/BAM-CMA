@@ -1318,7 +1318,7 @@ function showView(name) {
   currentView = name;
   if (name === 'home')   { renderHome(); return; }
   if (name === 'import') { requestAnimationFrame(renderImportSummary); return; }
-  if (name === 'cruce')  { requestAnimationFrame(renderCruceView); return; }
+  if (name === 'cruce')  { requestAnimationFrame(() => renderCruceView()); return; }
   if (name === 'mapa')           { requestAnimationFrame(renderMapaView); return; }
   if (name === 'fiscalizacion')  { requestAnimationFrame(renderFiscalizacion); return; }
   if (name === 'analytics') {
@@ -2593,14 +2593,12 @@ async function handleMapCSV(file) {
   toast(`${mapData.length} puntos del mapa cargados`);
 }
 
-function renderCruceView() {
-  // Si mapData no cargó aún, esperar a que cargue el backup
+async function renderCruceView() {
+  // Esperar a que los datos estén listos
   if (!mapData.length) {
-    ensureData().then(() => {
-      if (mapData.length) renderCruceView();
-    });
-    return;
+    await ensureData();
   }
+  if (!mapData.length) return; // sin datos aún
   document.getElementById('cruce-period-wrap').classList.remove('hidden');
   document.getElementById('cruce-upload').style.display = 'none';
   document.getElementById('map-status').textContent = `✓ ${mapData.length} puntos cargados`;
