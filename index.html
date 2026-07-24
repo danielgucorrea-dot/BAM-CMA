@@ -491,6 +491,11 @@ async function loadAll() {
     }
   } catch(e) { console.error('loadAll:', e); }
   renderHome();
+  // Si el usuario ya está en CRUCE, ejecutar el cruce ahora que los datos están listos
+  if (currentView === 'cruce' && mapData.length && orders.length) {
+    renderCruceYearBoxes();
+    runCrossRef();
+  }
 }
 
 async function saveAllOrders() {
