@@ -4155,12 +4155,7 @@ function dlClose() {
 }
 
 function dlHasDatos(k) {
-  if(k==='ordenes')       return typeof orders!=='undefined' && orders.length>0;
-  if(k==='analytics')     return typeof orders!=='undefined' && orders.length>0;
-  if(k==='cruce')         return typeof mapData!=='undefined' && mapData.length>0;
-  if(k==='mapa')          return typeof mapData!=='undefined' && mapData.length>0;
-  if(k==='fiscalizacion') return typeof ACTAS_DATA!=='undefined' && ACTAS_DATA.length>0;
-  return false;
+  return true;
 }
 
 function dlSelFmt(fmt) {
