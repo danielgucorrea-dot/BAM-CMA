@@ -4224,13 +4224,30 @@ function dlDatosMapa() {
 }
 
 function dlDatosCruce() {
+  if(typeof cruceData!=='undefined' && cruceData) {
+    // Usar resultado del cruce actual según tab activo
+    var tab = typeof cruceTab!=='undefined' ? cruceTab : 1;
+    if(tab===1) return (cruceData.matched||[]).map(function(m){
+      return {Basural:m.mapNombre,Lat:m.mapLat,Lng:m.mapLng,Tipo:m.tipo,'Veces en órdenes':m.count,'% Incumplimiento':m.riesgo||0};
+    });
+    if(tab===2) return (cruceData.unmatched||[]).map(function(m){
+      return {Basural:m.mapNombre,Lat:m.mapLat,Lng:m.mapLng,'Sin operativo':true};
+    });
+    if(tab===3) return (cruceData.newBasurales||[]).map(function(b){
+      return {Dirección:b.raw,Tipo:b.tipo,'Veces en órdenes':b.count};
+    });
+    if(tab===4) return (cruceData.reactivados||[]).map(function(m){
+      return {Basural:m.mapNombre,Lat:m.mapLat,Lng:m.mapLng,'Veces en órdenes':m.count};
+    });
+  }
+  // Fallback: todos los basurales con frecuencia
   if(typeof mapData==='undefined'||typeof orders==='undefined') return [];
   var fq={};
   orders.forEach(function(o){(o.items||[]).forEach(function(i){
     if(i.tipo!=='Basural'&&i.tipo!=='Volcadero') return;
     var k=(i.ubic||'').toLowerCase().trim(); fq[k]=(fq[k]||0)+1;
   });});
-  return mapData.map(function(p) {
+  return mapData.map(function(p){
     var k=(p.nombre||'').toLowerCase().trim();
     return {Basural:p.nombre||'',Lat:p.lat||'',Lng:p.lng||'',Frecuencia_ordenes:fq[k]||0};
   }).sort(function(a,b){return b.Frecuencia_ordenes-a.Frecuencia_ordenes;});
