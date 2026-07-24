@@ -4142,8 +4142,10 @@ function dlPerReset() {
 }
 
 function dlPerLabel() {
-  var a=document.getElementById('dl-per-anio')?.value||'';
-  var m=document.getElementById('dl-per-mes')?.value||'';
+  var _a=document.getElementById('dl-per-anio');
+  var _m=document.getElementById('dl-per-mes');
+  var a=_a?_a.value:'';
+  var m=_m?_m.value:'';
   var MNOMS=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var lbl = a&&m ? MNOMS[+m]+' '+a : a ? 'Todo '+a : m ? MNOMS[+m]+' (todos los años)' : 'Todo el período disponible';
   var el = document.getElementById('dl-periodo-label');
