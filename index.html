@@ -474,6 +474,11 @@ async function restoreFromBackup(backup) {
   }
   orders.sort((a,b) => b.fecha.localeCompare(a.fecha));
   renderHome();
+  // Si el usuario entró al CRUCE antes de que cargaran los datos, calcularlo ahora
+  if (currentView === 'cruce' && mapData.length && orders.length && !cruceData) {
+    renderCruceYearBoxes();
+    runCrossRef();
+  }
 }
 
 async function loadAll() {
