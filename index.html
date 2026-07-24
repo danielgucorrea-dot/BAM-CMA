@@ -491,11 +491,6 @@ async function loadAll() {
     }
   } catch(e) { console.error('loadAll:', e); }
   renderHome();
-  // Si el usuario ya está en CRUCE, ejecutar el cruce ahora que los datos están listos
-  if (currentView === 'cruce' && mapData.length && orders.length) {
-    renderCruceYearBoxes();
-    runCrossRef();
-  }
 }
 
 async function saveAllOrders() {
@@ -2603,37 +2598,17 @@ async function handleMapCSV(file) {
   toast(`${mapData.length} puntos del mapa cargados`);
 }
 
-async function renderCruceView() {
-  const subEl    = document.getElementById('cruce-sub');
-  const uploadEl = document.getElementById('cruce-upload');
-  const periodEl = document.getElementById('cruce-period-wrap');
-
-  // Si mapData no está listo, mostrar "cargando" y esperar
+function renderCruceView() {
   if (!mapData.length) {
-    if (subEl) subEl.textContent = 'Cargando datos…';
-    await ensureData();
-    // Reintentar hasta 10 veces con 300ms entre intentos
-    for (let i = 0; i < 10 && !mapData.length; i++) {
-      await new Promise(r => setTimeout(r, 300));
-    }
-  }
-
-  if (!mapData.length) {
-    if (subEl) subEl.textContent = 'Sin datos de mapa — importá el backup primero';
+    // Datos aún no cargados — reintentar cuando estén listos
+    setTimeout(renderCruceView, 500);
     return;
   }
-
-  if (periodEl) periodEl.classList.remove('hidden');
-  if (uploadEl) uploadEl.style.display = 'none';
-  document.getElementById('map-status').textContent = `✓ ${mapData.length} puntos cargados`;
-  if (subEl) subEl.textContent = `${mapData.length} puntos en mapa`;
+  document.getElementById('cruce-period-wrap').classList.remove('hidden');
+  document.getElementById('cruce-upload').style.display = 'none';
+  document.getElementById('cruce-sub').textContent = `${mapData.length} puntos en mapa`;
   renderCruceYearBoxes();
-  if (cruceData) {
-    renderCruceResults();
-  } else if (orders.length && mapData.length) {
-    // Calcular automáticamente si hay datos
-    runCrossRef();
-  }
+  if (cruceData) renderCruceResults();
 }
 
 // ── Selectores de período ──
