@@ -2533,9 +2533,30 @@ function tokenMatch(a, b) {
 
 // addrMatch: para intersecciones exige que ambas calles coincidan
 // Para resto mantiene Jaccard 0.50 original (no rompe matches existentes)
+// Extraer calle principal de basurales lineales ("desde X hasta Y")
+function callesPrincipales(nombre) {
+  var n = (nombre||'').toLowerCase();
+  // Patrón "desde X hasta Y" — retorna la calle que se repite
+  var m = n.match(/(?:av\.?\s+|avenida\s+)?([\w\s]+?)\s+desde/i);
+  if (m) return [m[1].trim()];
+  // Patrón "X entre Y y Z" — retorna X
+  var m2 = n.match(/^([\w\s]+?)\s+entre/i);
+  if (m2) return [m2[1].trim()];
+  return [];
+}
+
 function addrMatch(a, b) {
   if (!a || !b) return false;
   if (a === b) return true;
+  // Si alguno es basural lineal (desde...hasta), usar solo la calle principal
+  var cpA = callesPrincipales(a);
+  var cpB = callesPrincipales(b);
+  if (cpA.length) {
+    return cpA.some(function(c){ return b.indexOf(c) > -1; });
+  }
+  if (cpB.length) {
+    return cpB.some(function(c){ return a.indexOf(c) > -1; });
+  }
   const aIsX = /\s+y\s+/i.test(a);
   const bIsX = /\s+y\s+/i.test(b);
 
