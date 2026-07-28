@@ -2195,7 +2195,7 @@ async function handleFiles(files) {
 
   let done = 0, newCount = 0, skipCount = 0;
   const errors = [];
-  const existingKeys = new Set(orders.map(o => o.key));
+  const existingKeys = new Set(orders.map(o => (o.fecha||'')+'_'+(o.numero||'')));
 
   for (const file of arr) {
     const isCSV = file.name.toLowerCase().endsWith('.csv');
@@ -2213,13 +2213,13 @@ async function handleFiles(files) {
       }
 
       for (const order of parsed) {
-        if (existingKeys.has(order.key)) {
+        if (existingKeys.has((order.fecha||'')+'_'+(order.numero||''))) {
           skipCount++;
         } else if (order.items.length === 0) {
           errors.push(`⚠️ Sin pedidos: ${order.key}`);
         } else {
           orders.push(order);
-          existingKeys.add(order.key);
+          existingKeys.add((order.fecha||'')+'_'+(order.numero||''));
           newCount++;
         }
       }
@@ -2347,7 +2347,7 @@ async function restoreData(file) {
     const backup = JSON.parse(text);
     if (!backup.orders || !Array.isArray(backup.orders)) throw new Error('Formato inválido');
 
-    const existingKeys = new Set(orders.map(o => o.key));
+    const existingKeys = new Set(orders.map(o => (o.fecha||'')+'_'+(o.numero||'')));
     let added = 0;
     for (const o of backup.orders) {
       if (!existingKeys.has(o.key)) {
