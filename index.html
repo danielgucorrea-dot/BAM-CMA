@@ -4190,10 +4190,14 @@ function dlSelFmt(fmt) {
 }
 
 function dlGetSeleccionados() {
-  return Object.keys(DL_SECCIONES).filter(function(k) {
-    var el = document.getElementById('dl-chk-'+k);
-    return el && el.checked;
+  var sel = [];
+  document.querySelectorAll('#dl-checks input[type=checkbox]').forEach(function(el) {
+    if(el.checked) {
+      var k = el.id.replace('dl-chk-','');
+      if(k) sel.push(k);
+    }
   });
+  return sel;
 }
 
 // ── Generadores de datos por sección ─────
