@@ -257,6 +257,7 @@ button{cursor:pointer;font-family:inherit}
 <!-- VIEW: IMPORT -->
 <div id="v-import" class="hidden">
   <div class="hdr">
+    <button class="btn-dl" onclick="ghSyncOpen()" style="position:static;font-size:10px;padding:4px 10px;float:right">☁️ Sync</button>
     <div class="hdr-title">Importar servicios</div>
     <div class="hdr-sub mono">.docx · .xlsx · .csv · .kml · .kmz</div>
   </div>
@@ -4770,5 +4771,115 @@ function dlExecute() {
 
 
 
+
+<!-- ══ MODAL SYNC GITHUB ══ -->
+<div id="gh-sync-modal" class="dl-modal hidden" onclick="if(event.target===this)ghSyncClose()">
+  <div class="dl-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700;color:#1A2E1A">☁️ Sincronizar con GitHub</div>
+      <button onclick="ghSyncClose()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#666">✕</button>
+    </div>
+    <div style="font-size:12px;color:#4A6A4A;margin-bottom:12px">
+      Esto sube el backup de órdenes a GitHub para que todos los dispositivos vean los datos actualizados.
+    </div>
+    <div style="font-size:11px;font-weight:700;color:#4A6A4A;margin-bottom:6px">TOKEN DE GITHUB</div>
+    <input id="gh-token-input" type="password" placeholder="ghp_..." 
+      style="width:100%;padding:10px;border:1px solid #C0DD97;border-radius:8px;font-size:12px;font-family:'Poppins',sans-serif;box-sizing:border-box;margin-bottom:10px">
+    <div style="font-size:10px;color:#888;margin-bottom:12px">El token se guarda en este dispositivo para la próxima vez.</div>
+    <button onclick="ghSincronizar()"
+      style="width:100%;padding:13px;background:#2D6A2F;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Poppins',sans-serif;cursor:pointer">
+      ☁️ Subir a GitHub
+    </button>
+    <div id="gh-sync-status" style="text-align:center;font-size:11px;color:#4A6A4A;margin-top:10px;min-height:16px"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// SINCRONIZACIÓN CON GITHUB
+// ══════════════════════════════════════════
+var GH_TOKEN  = '';
+var GH_OWNER  = 'danielgucorrea-dot';
+var GH_REPO   = 'BAM-CMA';
+var GH_BRANCH = 'main';
+
+function ghSyncOpen() {
+  var modal = document.getElementById('gh-sync-modal');
+  if(modal) modal.classList.remove('hidden');
+  var inp = document.getElementById('gh-token-input');
+  if(inp && GH_TOKEN) inp.value = GH_TOKEN;
+}
+
+function ghSyncClose() {
+  var modal = document.getElementById('gh-sync-modal');
+  if(modal) modal.classList.add('hidden');
+}
+
+async function ghSubirArchivo(path, contenido, mensaje) {
+  // Obtener SHA actual
+  var sha = null;
+  try {
+    var r = await fetch('https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO+'/contents/'+path, {
+      headers: {'Authorization':'token '+GH_TOKEN,'Accept':'application/vnd.github.v3+json'}
+    });
+    if(r.ok) { var d = await r.json(); sha = d.sha; }
+  } catch(e) {}
+
+  // Subir
+  var body = {
+    message: mensaje || ('Actualización desde dashboard '+new Date().toLocaleDateString('es-AR')),
+    content: btoa(unescape(encodeURIComponent(contenido))),
+    branch: GH_BRANCH
+  };
+  if(sha) body.sha = sha;
+
+  var r2 = await fetch('https://api.github.com/repos/'+GH_OWNER+'/'+GH_REPO+'/contents/'+path, {
+    method: 'PUT',
+    headers: {'Authorization':'token '+GH_TOKEN,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  return r2.ok;
+}
+
+async function ghSincronizar() {
+  var inp = document.getElementById('gh-token-input');
+  if(!inp || !inp.value.trim()) {
+    alert('Ingresá tu token de GitHub');
+    return;
+  }
+  GH_TOKEN = inp.value.trim();
+  localStorage.setItem('gh_token', GH_TOKEN);
+
+  var st = document.getElementById('gh-sync-status');
+  if(st) st.textContent = 'Subiendo...';
+
+  try {
+    // Subir ordenes_backup.json
+    var backup = JSON.stringify({
+      version: 3,
+      orders: orders,
+      mapData: mapData,
+      mapInactivos: mapInactivos || [],
+      incumplimientos: []
+    }, null, 0);
+
+    var ok = await ghSubirArchivo('ordenes_backup.json', backup, 'Backup desde dashboard');
+    if(ok) {
+      if(st) st.textContent = '✅ Sincronizado con GitHub';
+      setTimeout(ghSyncClose, 2000);
+    } else {
+      if(st) st.textContent = '❌ Error — verificá el token';
+    }
+  } catch(e) {
+    if(st) st.textContent = '❌ Error: '+e.message;
+  }
+}
+
+// Recuperar token guardado
+(function(){
+  var t = localStorage.getItem('gh_token');
+  if(t) GH_TOKEN = t;
+})();
+</script>
 </body>
 </html>
