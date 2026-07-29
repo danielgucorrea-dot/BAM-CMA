@@ -2562,17 +2562,22 @@ function addrMatch(a, b) {
   const bIsX = /\s+y\s+/i.test(b);
 
   if (aIsX && bIsX) {
-    // Intersecciones: cada calle debe tener match por tokens
-    const ap = a.split(/\s+y\s+/i).map(s=>s.trim()).sort();
-    const bp = b.split(/\s+y\s+/i).map(s=>s.trim()).sort();
+    // Intersecciones: AMBAS calles de A deben matchear con AMBAS calles de B
+    const ap = a.split(/\s+y\s+/i).map(s=>s.trim());
+    const bp = b.split(/\s+y\s+/i).map(s=>s.trim());
     const partMatch = (sa, sb) => {
       const ta = sa.split(' ').filter(t=>t.length>2);
       const tb = sb.split(' ').filter(t=>t.length>2);
-      if (!ta.length || !tb.length) return !ta.length && !tb.length;
+      if (!ta.length || !tb.length) return false;
       return ta.every(x=>tb.some(y=>tokenMatch(x,y))) &&
              tb.every(x=>ta.some(y=>tokenMatch(x,y)));
     };
-    return partMatch(ap[0], bp[0]) && partMatch(ap[1]||'', bp[1]||'');
+    // Cada calle de ap debe tener exactamente un match en bp y viceversa
+    const m00 = partMatch(ap[0], bp[0]);
+    const m01 = partMatch(ap[0], bp[1]||'');
+    const m10 = partMatch(ap[1]||'', bp[0]);
+    const m11 = partMatch(ap[1]||'', bp[1]||'');
+    return (m00 && m11) || (m01 && m10);
   }
 
   // No intersecciones: Jaccard original 0.50 (mantiene matches previos)
