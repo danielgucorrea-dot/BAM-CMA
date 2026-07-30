@@ -2573,14 +2573,13 @@ function addrMatch(a, b) {
   }
 
   if (aIsX && !bIsX) {
-    // A es intersección, B es dirección numerada — solo matchea si B contiene AMBAS calles de A
-    const ap = a.split(/\s+y\s+/i).map(s=>s.trim());
-    return ap.every(parte => partMatch(parte, b));
+    // Intersección vs dirección numerada: NO matchear
+    return false;
   }
 
   if (!aIsX && bIsX) {
-    const bp = b.split(/\s+y\s+/i).map(s=>s.trim());
-    return bp.every(parte => partMatch(parte, a));
+    // Dirección numerada vs intersección: NO matchear
+    return false;
   }
 
   // Basurales lineales (desde...hasta): usar calle principal
