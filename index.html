@@ -4,8 +4,7 @@
 <meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<meta name="cache-version" content="20260730154642">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Órdenes de Servicio 2026</title>
 <style>
 :root{
@@ -2988,7 +2987,7 @@ function renderCruceResults() {
           <div style="flex:1;min-width:0">
             <div style="font-size:11px;font-weight:700;color:#1A2E1A;margin-bottom:2px">${m.mapNombre}</div>
             <span style="font-size:10px;background:${ti.bg};color:${ti.color};border-radius:3px;padding:1px 5px;font-family:'Poppins',sans-serif">${ti.icon} ${m.tipo}</span>
-            ${m.score < 100 ? `<div style="font-size:10px;color:#1A2E1A;font-family:'Poppins',sans-serif;margin-top:2px">↳ en ord: ${m.ordRaw}</div>`}
+            ${m.score < 100 ? `<div style="font-size:10px;color:#1A2E1A;font-family:'Poppins',sans-serif;margin-top:2px">↳ ${m.ordRaw}</div>` : ''}
             ${riesgoHTML}
           </div>
           <div style="text-align:right;flex-shrink:0;margin-left:10px">
@@ -4588,8 +4587,6 @@ function dlPDF(secciones, filename) {
     <div id="inc-tabla"></div>
   </div>
 </div>
-
-</script>
 
 <script>
 var INCUMPL_DATA = null;
