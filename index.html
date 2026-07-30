@@ -2912,13 +2912,14 @@ function runCrossRef() {
     const reactivados = [];
     const matchedInactNorms = new Set();
     mapInactivos.forEach(mp => {
-      const mpKey = mp.norm.split(' ').filter(t=>t.length>2).sort().join(' ');
       let bestSc = 0, bestAddr = null;
       orderAddrs.forEach(([n, data]) => {
-        const sc = jaccard(mpKey, n);
-        if (sc > bestSc) { bestSc = sc; bestAddr = [n, data]; }
+        if (addrMatch(mp.norm, n)) {
+          const sc = jaccard(mp.norm, n);
+          if (sc > bestSc) { bestSc = sc; bestAddr = [n, data]; }
+        }
       });
-      if ((bestSc >= 1 || bestSc >= THRESHOLD) && bestAddr) {
+      if (bestAddr) {
         reactivados.push({
           mapNombre: mp.nombre, mapLat: mp.lat, mapLng: mp.lng,
           ordRaw: bestAddr[1].raw, count: bestAddr[1].count,
