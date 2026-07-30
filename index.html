@@ -2549,30 +2549,22 @@ function callesPrincipales(nombre) {
 function addrMatch(a, b) {
   if (!a || !b) return false;
   if (a === b) return true;
-  // Si alguno es basural lineal (desde...hasta), usar solo la calle principal
-  var cpA = callesPrincipales(a);
-  var cpB = callesPrincipales(b);
-  if (cpA.length) {
-    return cpA.some(function(c){ return b.indexOf(c) > -1; });
-  }
-  if (cpB.length) {
-    return cpB.some(function(c){ return a.indexOf(c) > -1; });
-  }
+
   const aIsX = /\s+y\s+/i.test(a);
   const bIsX = /\s+y\s+/i.test(b);
 
+  // Función para comparar dos partes de una intersección
+  const partMatch = (sa, sb) => {
+    const ta = sa.toLowerCase().split(/[\s,]+/).filter(t=>t.length>2 && !/^(av|avenida|pje|pasaje|cnel|coronel|gral|dr|rvdo|nro)$/.test(t));
+    const tb = sb.toLowerCase().split(/[\s,]+/).filter(t=>t.length>2 && !/^(av|avenida|pje|pasaje|cnel|coronel|gral|dr|rvdo|nro)$/.test(t));
+    if (!ta.length || !tb.length) return false;
+    return ta.every(x=>tb.some(y=>tokenMatch(x,y))) && tb.every(x=>ta.some(y=>tokenMatch(x,y)));
+  };
+
   if (aIsX && bIsX) {
-    // Intersecciones: AMBAS calles de A deben matchear con AMBAS calles de B
+    // Ambas intersecciones: AMBAS calles deben matchear
     const ap = a.split(/\s+y\s+/i).map(s=>s.trim());
     const bp = b.split(/\s+y\s+/i).map(s=>s.trim());
-    const partMatch = (sa, sb) => {
-      const ta = sa.split(' ').filter(t=>t.length>2);
-      const tb = sb.split(' ').filter(t=>t.length>2);
-      if (!ta.length || !tb.length) return false;
-      return ta.every(x=>tb.some(y=>tokenMatch(x,y))) &&
-             tb.every(x=>ta.some(y=>tokenMatch(x,y)));
-    };
-    // Cada calle de ap debe tener exactamente un match en bp y viceversa
     const m00 = partMatch(ap[0], bp[0]);
     const m01 = partMatch(ap[0], bp[1]||'');
     const m10 = partMatch(ap[1]||'', bp[0]);
@@ -2580,8 +2572,25 @@ function addrMatch(a, b) {
     return (m00 && m11) || (m01 && m10);
   }
 
-  // No intersecciones: Jaccard original 0.50 (mantiene matches previos)
-  return jaccard(a, b) >= 0.50;
+  if (aIsX && !bIsX) {
+    // A es intersección, B es dirección numerada — solo matchea si B contiene AMBAS calles de A
+    const ap = a.split(/\s+y\s+/i).map(s=>s.trim());
+    return ap.every(parte => partMatch(parte, b));
+  }
+
+  if (!aIsX && bIsX) {
+    const bp = b.split(/\s+y\s+/i).map(s=>s.trim());
+    return bp.every(parte => partMatch(parte, a));
+  }
+
+  // Basurales lineales (desde...hasta): usar calle principal
+  var cpA = callesPrincipales(a);
+  var cpB = callesPrincipales(b);
+  if (cpA.length) return cpA.some(function(c){ return partMatch(c, b); });
+  if (cpB.length) return cpB.some(function(c){ return partMatch(c, a); });
+
+  // Ambas direcciones numeradas: Jaccard estricto
+  return jaccard(a, b) >= 0.65;
 }
 function levenshteinClose(a, b) { return tokenMatch(a, b); }
 
