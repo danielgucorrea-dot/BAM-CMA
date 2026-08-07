@@ -2223,51 +2223,52 @@ async function handleFiles(files) {
             const mesNum = MESES_MAP[shName.toLowerCase()];
             if (!mesNum) return;
             const ws = wb.Sheets[shName];
-            const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+            const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
             let quinc = '';
-            let headerPassed = false;
+            let numColStart = -1; // índice donde empiezan los numerales
             rows.forEach(function(row) {
               const rowStr = row.filter(Boolean).join(' ');
-              if (/quincena/i.test(rowStr)) { quinc = rowStr.trim(); headerPassed = true; return; }
-              if (!headerPassed) return;
-              // Buscar día en primeras celdas
-              let dia = null;
-              for (let i=0;i<4;i++) {
-                const v = row[i];
-                if (v === null || v === undefined) continue;
-                const s = String(v).trim();
-                if (/^\d{1,2}$/.test(s) && +s>=1 && +s<=31) { dia=+s; break; }
+              // Detectar quincena
+              if (/quincena/i.test(rowStr)) {
+                quinc = row.filter(Boolean).join(' ').trim();
+                numColStart = -1; // resetear para esta quincena
+                return;
               }
-              if (!dia) return;
-              // Extraer valores numéricos de las últimas columnas
-              const nums = row.map(v=>v===null||v===undefined?0:(isNaN(+v)?0:+v)).filter((v,i)=>i>0);
-              const vals = nums.slice(-5);
-              const total = vals.reduce((s,v)=>s+v,0);
-              const fecha = '2026-'+String(mesNum).padStart(2,'0')+'-'+String(dia).padStart(2,'0');
-              const rec = {fecha, quincena:quinc.split('–')[0].trim(), orden:'', acta:'', obs:'', total};
-              NUMERALES.forEach((n,i)=>{ rec[n]=vals[i]||0; });
+              // Detectar fila de headers — buscar "3.4.2"
+              if (/3[.,]4[.,]2/i.test(rowStr)) {
+                numColStart = row.findIndex(function(c){ return c && /3[.,]4/i.test(String(c)); });
+                return;
+              }
+              if (!quinc || numColStart < 0) return;
+              // Fecha en col 3
+              const fechaRaw = row[3];
+              if (!fechaRaw) return;
+              let fecha = null;
+              const fs = String(fechaRaw).trim();
+              // "2026-02-02 00:00:00" o "2026-02-02"
+              const mFull = fs.match(/(\d{4})-(\d{2})-(\d{2})/);
+              if (mFull) {
+                fecha = mFull[1]+'-'+mFull[2]+'-'+mFull[3];
+              } else if (/^\d{1,2}$/.test(fs) && +fs>=1 && +fs<=31) {
+                fecha = '2026-'+String(mesNum).padStart(2,'0')+'-'+String(+fs).padStart(2,'0');
+              }
+              if (!fecha) return;
+              // Extraer 5 valores numéricos desde numColStart
+              function pv(v){ var s=String(v||'').replace(/-\.-/g,'').replace(/S\/Nov\.?/gi,'').trim(); return isNaN(+s)||s===''?0:+s; }
+              const vals = [
+                pv(row[numColStart]),
+                pv(row[numColStart+1]),
+                pv(row[numColStart+2]),
+                pv(row[numColStart+3]),
+                pv(row[numColStart+4])
+              ];
+              const total = vals.reduce(function(s,v){return s+v;},0);
+              const rec = {fecha:fecha, quincena:quinc.split('–')[0].split('-')[0].trim(), orden:'', acta:'', obs:'', total:total};
+              NUMERALES.forEach(function(n,i){ rec[n]=vals[i]||0; });
               nuevosInc.push(rec);
             });
           });
-          // Asegurar que INCUMPL_DATA esté cargado antes de comparar
-          if (!INCUMPL_DATA) await loadIncumplData();
-          if (!INCUMPL_DATA) INCUMPL_DATA = [];
-          const keySet = new Set(INCUMPL_DATA.map(r=>r.fecha+'_'+(r.quincena||'')));
-          const agreg = nuevosInc.filter(r=>!keySet.has(r.fecha+'_'+(r.quincena||'')));
-          if (agreg.length) {
-            INCUMPL_DATA = INCUMPL_DATA.concat(agreg).sort((a,b)=>a.fecha.localeCompare(b.fecha));
-            // Convertir a incumplData
-            incumplData = {};
-            INCUMPL_DATA.forEach(function(x){
-              incumplData[x.fecha]={fecha:x.fecha,rnh:x['3.4.2-08']||0,basurales:x['3.4.2-03']||0,volcaderos:x['3.4.3-03']||0,faltaRecoleccion:x['3.4.3-05']||0,barrido:x['3.4.2-01']||0,total:x.total||0,quincena:x.quincena||''};
-            });
-            toast('✓ '+agreg.length+' registros de incumplimientos cargados');
-            // Refrescar panel si está activo
-            if (homeView === 'incumpl') renderIncumplPanel();
-          } else {
-            toast('⚠ Sin registros nuevos — ya estaban cargados');
-          }
-        } catch(err) { toast('Error procesando xlsx: '+err.message); }
+          } catch(err) { toast('Error procesando xlsx: '+err.message); }
       };
       reader.readAsArrayBuffer(file);
       continue;
