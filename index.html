@@ -2255,7 +2255,7 @@ async function handleFiles(files) {
             // Convertir a incumplData
             incumplData = {};
             INCUMPL_DATA.forEach(function(x){
-              incumplData[x.fecha]={rnh:x['3.4.2-08']||0,basurales:x['3.4.2-03']||0,volcaderos:x['3.4.3-03']||0,faltaRecoleccion:x['3.4.3-05']||0,barrido:x['3.4.2-01']||0,total:x.total||0,quincena:x.quincena||''};
+              incumplData[x.fecha]={fecha:x.fecha,rnh:x['3.4.2-08']||0,basurales:x['3.4.2-03']||0,volcaderos:x['3.4.3-03']||0,faltaRecoleccion:x['3.4.3-05']||0,barrido:x['3.4.2-01']||0,total:x.total||0,quincena:x.quincena||''};
             });
             toast('✓ '+agreg.length+' registros de incumplimientos cargados');
           }
@@ -4671,6 +4671,7 @@ async function loadIncumplData() {
     incumplData = {};
     INCUMPL_DATA.forEach(function(x) {
       incumplData[x.fecha] = {
+        fecha:            x.fecha,
         rnh:              (x['3.4.2-08']||0),
         basurales:        (x['3.4.2-03']||0),
         volcaderos:       (x['3.4.3-03']||0),
