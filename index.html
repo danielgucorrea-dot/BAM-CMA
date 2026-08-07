@@ -2199,7 +2199,68 @@ async function handleFiles(files) {
   const existingKeys = new Set(orders.map(o => (o.fecha||'')+'_'+(o.numero||'')));
 
   for (const file of arr) {
-    const isCSV = file.name.toLowerCase().endsWith('.csv');
+    const fname = file.name.toLowerCase();
+    const isCSV  = fname.endsWith('.csv');
+    const isIncumplXlsx = fname.endsWith('.xlsx') && (fname.includes('incumpl') || fname.includes('numeral') || fname.includes('quincenal'));
+
+    if (isIncumplXlsx) {
+      document.getElementById('imp-msg').textContent = `Procesando incumplimientos: ${file.name}`;
+      done++;
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const wb = XLSX.read(e.target.result, {type:'array'});
+          const NUMERALES = ['3.4.2-01','3.4.2-03','3.4.2-08','3.4.3-03','3.4.3-05'];
+          const MESES_MAP = {febrero:2,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12,enero:1,marzo:3};
+          const nuevosInc = [];
+          wb.SheetNames.forEach(function(shName) {
+            const mesNum = MESES_MAP[shName.toLowerCase()];
+            if (!mesNum) return;
+            const ws = wb.Sheets[shName];
+            const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+            let quinc = '';
+            let headerPassed = false;
+            rows.forEach(function(row) {
+              const rowStr = row.filter(Boolean).join(' ');
+              if (/quincena/i.test(rowStr)) { quinc = rowStr.trim(); headerPassed = true; return; }
+              if (!headerPassed) return;
+              // Buscar día en primeras celdas
+              let dia = null;
+              for (let i=0;i<4;i++) {
+                const v = row[i];
+                if (v === null || v === undefined) continue;
+                const s = String(v).trim();
+                if (/^\d{1,2}$/.test(s) && +s>=1 && +s<=31) { dia=+s; break; }
+              }
+              if (!dia) return;
+              // Extraer valores numéricos de las últimas columnas
+              const nums = row.map(v=>v===null||v===undefined?0:(isNaN(+v)?0:+v)).filter((v,i)=>i>0);
+              const vals = nums.slice(-5);
+              const total = vals.reduce((s,v)=>s+v,0);
+              const fecha = '2026-'+String(mesNum).padStart(2,'0')+'-'+String(dia).padStart(2,'0');
+              const rec = {fecha, quincena:quinc.split('–')[0].trim(), orden:'', acta:'', obs:'', total};
+              NUMERALES.forEach((n,i)=>{ rec[n]=vals[i]||0; });
+              nuevosInc.push(rec);
+            });
+          });
+          if (nuevosInc.length) {
+            if (!INCUMPL_DATA) INCUMPL_DATA = [];
+            const keySet = new Set(INCUMPL_DATA.map(r=>r.fecha+'_'+r.quincena));
+            const agreg = nuevosInc.filter(r=>!keySet.has(r.fecha+'_'+r.quincena));
+            INCUMPL_DATA = INCUMPL_DATA.concat(agreg).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+            // Convertir a incumplData
+            incumplData = {};
+            INCUMPL_DATA.forEach(function(x){
+              incumplData[x.fecha]={rnh:x['3.4.2-08']||0,basurales:x['3.4.2-03']||0,volcaderos:x['3.4.3-03']||0,faltaRecoleccion:x['3.4.3-05']||0,barrido:x['3.4.2-01']||0,total:x.total||0,quincena:x.quincena||''};
+            });
+            toast('✓ '+agreg.length+' registros de incumplimientos cargados');
+          }
+        } catch(err) { toast('Error procesando xlsx: '+err.message); }
+      };
+      reader.readAsArrayBuffer(file);
+      continue;
+    }
+
     document.getElementById('imp-msg').textContent =
       isCSV ? `Procesando CSV: ${file.name}` : `Procesando: ${file.name}`;
     document.getElementById('imp-cnt').textContent = `${done+1}/${arr.length}`;
