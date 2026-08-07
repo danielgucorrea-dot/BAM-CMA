@@ -1030,7 +1030,7 @@ function initLeafletMap() {
 let homeView = 'ordenes';
 let _renderVersion = 0; // Cancela renders anteriores al cambiar selección
 
-function setHomeView(v) {
+async function setHomeView(v) {
   homeView = v;
   _renderVersion++; // Cancelar renders en curso
   const btns = {
@@ -1063,7 +1063,7 @@ function setHomeView(v) {
   document.getElementById('incumpl-panel').style.display = v==='incumpl' ? '' : 'none';
   if (calWrap) calWrap.style.display = v==='ordenes' ? '' : 'none';
   if (v==='totales') renderTotalesPanel();
-  if (v==='incumpl') renderIncumplPanel();
+  if (v==='incumpl') await renderIncumplPanel();
   if (v==='ordenes') renderOrderList();
 }
 
@@ -1300,7 +1300,7 @@ function selectDay(fecha) {
   updateHomeHeader();
   // Refrescar la vista activa sin cambiarla
   if (homeView === 'ordenes') renderOrderList();
-  if (homeView === 'incumpl') renderIncumplPanel();
+  if (homeView === 'incumpl') await renderIncumplPanel();
   if (homeView === 'totales') renderTotalesPanel();
 }
 
@@ -1567,10 +1567,10 @@ function selectMonth(m) {
   }, 0);
 }
 
-function refreshActivePanel() {
+async function refreshActivePanel() {
   if (typeof homeView === 'undefined') return;
   if (homeView === 'totales') renderTotalesPanel();
-  if (homeView === 'incumpl') renderIncumplPanel();
+  if (homeView === 'incumpl') await renderIncumplPanel();
 }
 
 function showLoadingState() {
