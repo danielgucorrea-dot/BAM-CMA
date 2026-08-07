@@ -474,6 +474,8 @@ async function restoreFromBackup(backup) {
     await st_set('incumpl', JSON.stringify(backup.incumplimientos));
   }
   orders.sort((a,b) => b.fecha.localeCompare(a.fecha));
+  // Precargar incumplimientos para que estén listos cuando el usuario los abra
+  loadIncumplData().catch(function(){});
   renderHome();
   if (currentView === 'cruce' && mapData.length) renderCruceView();
 }
@@ -1063,9 +1065,7 @@ function setHomeView(v) {
   document.getElementById('incumpl-panel').style.display = v==='incumpl' ? '' : 'none';
   if (calWrap) calWrap.style.display = v==='ordenes' ? '' : 'none';
   if (v==='totales') renderTotalesPanel();
-  if (v==='incumpl') {
-    loadIncumplData().then(function() { renderIncumplPanel(); });
-  }
+  if (v==='incumpl') renderIncumplPanel();
   if (v==='ordenes') renderOrderList();
 }
 
@@ -1302,7 +1302,7 @@ function selectDay(fecha) {
   updateHomeHeader();
   // Refrescar la vista activa sin cambiarla
   if (homeView === 'ordenes') renderOrderList();
-  if (homeView === 'incumpl') { loadIncumplData().then(function() { renderIncumplPanel(); }); }
+  if (homeView === 'incumpl') renderIncumplPanel();
   if (homeView === 'totales') renderTotalesPanel();
 }
 
@@ -1572,7 +1572,7 @@ function selectMonth(m) {
 function refreshActivePanel() {
   if (typeof homeView === 'undefined') return;
   if (homeView === 'totales') renderTotalesPanel();
-  if (homeView === 'incumpl') { loadIncumplData().then(function() { renderIncumplPanel(); }); }
+  if (homeView === 'incumpl') renderIncumplPanel();
 }
 
 function showLoadingState() {
