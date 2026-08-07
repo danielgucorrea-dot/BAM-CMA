@@ -4600,6 +4600,22 @@ async function loadIncumplData() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     INCUMPL_DATA = await r.json();
     _incLoading = false;
+    // Convertir array a objeto por fecha para renderIncumplPanel
+    // Mapear numerales a tipos que usa el panel
+    incumplData = {};
+    INCUMPL_DATA.forEach(function(x) {
+      incumplData[x.fecha] = {
+        rnh:              (x['3.4.2-08']||0),
+        basurales:        (x['3.4.2-03']||0),
+        volcaderos:       (x['3.4.3-03']||0),
+        faltaRecoleccion: (x['3.4.3-05']||0),
+        barrido:          (x['3.4.2-01']||0),
+        total:            (x.total||0),
+        quincena:         (x.quincena||''),
+        orden:            (x.orden||''),
+        acta:             (x.acta||''),
+      };
+    });
     return INCUMPL_DATA;
   } catch(e) {
     console.error('Error cargando incumplimientos.json:', e);
