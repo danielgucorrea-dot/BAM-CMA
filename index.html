@@ -2249,10 +2249,12 @@ async function handleFiles(files) {
               nuevosInc.push(rec);
             });
           });
-          if (nuevosInc.length) {
-            if (!INCUMPL_DATA) INCUMPL_DATA = [];
-            const keySet = new Set(INCUMPL_DATA.map(r=>r.fecha+'_'+r.quincena));
-            const agreg = nuevosInc.filter(r=>!keySet.has(r.fecha+'_'+r.quincena));
+          // Asegurar que INCUMPL_DATA esté cargado antes de comparar
+          if (!INCUMPL_DATA) await loadIncumplData();
+          if (!INCUMPL_DATA) INCUMPL_DATA = [];
+          const keySet = new Set(INCUMPL_DATA.map(r=>r.fecha+'_'+(r.quincena||'')));
+          const agreg = nuevosInc.filter(r=>!keySet.has(r.fecha+'_'+(r.quincena||'')));
+          if (agreg.length) {
             INCUMPL_DATA = INCUMPL_DATA.concat(agreg).sort((a,b)=>a.fecha.localeCompare(b.fecha));
             // Convertir a incumplData
             incumplData = {};
@@ -2260,6 +2262,10 @@ async function handleFiles(files) {
               incumplData[x.fecha]={fecha:x.fecha,rnh:x['3.4.2-08']||0,basurales:x['3.4.2-03']||0,volcaderos:x['3.4.3-03']||0,faltaRecoleccion:x['3.4.3-05']||0,barrido:x['3.4.2-01']||0,total:x.total||0,quincena:x.quincena||''};
             });
             toast('✓ '+agreg.length+' registros de incumplimientos cargados');
+            // Refrescar panel si está activo
+            if (homeView === 'incumpl') renderIncumplPanel();
+          } else {
+            toast('⚠ Sin registros nuevos — ya estaban cargados');
           }
         } catch(err) { toast('Error procesando xlsx: '+err.message); }
       };
@@ -2308,7 +2314,7 @@ async function handleFiles(files) {
 
   const doneEl = document.getElementById('imp-done');
   doneEl.classList.remove('hidden');
-  doneEl.textContent = `✓ ${newCount} órdenes nuevas${skipCount ? ` · ${skipCount} ya existían` : ''}`;
+  doneEl.textContent = newCount > 0 ? `✓ ${newCount} órdenes nuevas${skipCount ? ` · ${skipCount} ya existían` : ''}` : `Procesamiento completado`;
   // Auto-actualizar la vista activa
   setTimeout(function() {
     if (currentView === 'home')      renderHome();
