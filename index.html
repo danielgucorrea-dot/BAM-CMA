@@ -2510,6 +2510,7 @@ dz.addEventListener('drop', e => {
 let mapData      = [];   // activos [{nombre, lat, lng, norm}]
 let mapInactivos = [];   // inactivos [{nombre, lat, lng, norm}]
 let incumplData  = {};   // { 'YYYY-MM-DD': {rnh,basurales,faltaRecoleccion,volcaderos,barrido,total,obs,suspendida} }
+var INCUMPL_DATA   = null;  // array del fetch de incumplimientos.json
 let cruceData    = null;
 let cruceTab     = 1;
 let cruceYear    = null;
