@@ -2268,7 +2268,26 @@ async function handleFiles(files) {
               nuevosInc.push(rec);
             });
           });
-          } catch(err) { toast('Error procesando xlsx: '+err.message); }
+          // Cargar INCUMPL_DATA si no está
+          if (!INCUMPL_DATA) {
+            try { const _r = await fetch('incumplimientos.json'); if(_r.ok) INCUMPL_DATA=await _r.json(); } catch(_e){}
+          }
+          if (!INCUMPL_DATA) INCUMPL_DATA = [];
+          // Detectar duplicados y agregar
+          const keySet = new Set(INCUMPL_DATA.map(function(r){return r.fecha+'_'+(r.quincena||'');}));
+          const agreg = nuevosInc.filter(function(r){return !keySet.has(r.fecha+'_'+(r.quincena||''));});
+          if (agreg.length) {
+            INCUMPL_DATA = INCUMPL_DATA.concat(agreg).sort(function(a,b){return a.fecha.localeCompare(b.fecha);});
+            incumplData = {};
+            INCUMPL_DATA.forEach(function(x){
+              incumplData[x.fecha]={fecha:x.fecha,rnh:x['3.4.2-08']||0,basurales:x['3.4.2-03']||0,volcaderos:x['3.4.3-03']||0,faltaRecoleccion:x['3.4.3-05']||0,barrido:x['3.4.2-01']||0,total:x.total||0,quincena:x.quincena||''};
+            });
+            toast('✓ '+agreg.length+' registros de incumplimientos cargados');
+            if (typeof homeView !== 'undefined' && homeView === 'incumpl') renderIncumplPanel();
+          } else {
+            toast('⚠ Sin registros nuevos — ya estaban cargados');
+          }
+        } catch(err) { toast('Error procesando xlsx: '+err.message); }
       };
       reader.readAsArrayBuffer(file);
       continue;
