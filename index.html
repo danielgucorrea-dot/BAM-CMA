@@ -2217,7 +2217,7 @@ async function handleFiles(files) {
       const reader = new FileReader();
       reader.onload = async function(e) {
         try {
-          const wb = XLSX.read(e.target.result, {type:'array'});
+          const wb = XLSX.read(e.target.result, {type:'array', bookType: fname.endsWith('.xlt') ? 'xlt' : undefined});
           const NUMERALES = ['3.4.2-01','3.4.2-03','3.4.2-08','3.4.3-03','3.4.3-05'];
           const MESES_MAP = {febrero:2,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12,enero:1,marzo:3};
           const nuevosInc = [];
