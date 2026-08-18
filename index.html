@@ -265,10 +265,10 @@ button{cursor:pointer;font-family:inherit}
     <div class="drop-zone" id="drop-zone" onclick="document.getElementById('f-input').click()">
       <div style="font-size:36px;margin-bottom:12px">📂</div>
       <div style="font-weight:700;color:#2D5A2F;margin-bottom:6px;font-size:15px">Seleccionar archivos</div>
-      <div style="font-size:12px;color:#1A2E1A">.docx Órdenes · .xlsx/.xlt/.csv Actas e Incumplimientos · .kml/.kmz Mapas</div>
+      <div style="font-size:12px;color:#1A2E1A">.docx Órdenes · .xlsx/.csv Actas e Incumplimientos · .kml/.kmz Mapas</div>
       <div style="font-size:11px;color:#1A2E1A;margin-top:4px">El sistema detecta el tipo automáticamente por la extensión</div>
     </div>
-    <input type="file" id="f-input" multiple accept=".docx,.xlsx,.xlt,.csv,.kml,.kmz,.shp" class="hidden" onchange="handleFiles(this.files)">
+    <input type="file" id="f-input" multiple accept=".docx,.xlsx,.csv,.kml,.kmz,.shp" class="hidden" onchange="handleFiles(this.files)">
 
     <div id="imp-prog-wrap" class="hidden" style="margin-top:16px">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">
@@ -474,8 +474,8 @@ async function restoreFromBackup(backup) {
     await st_set('incumpl', JSON.stringify(backup.incumplimientos));
   }
   orders.sort((a,b) => b.fecha.localeCompare(a.fecha));
-  // Precargar incumplimientos — esperar antes de renderizar
-  await loadIncumplData().catch(function(){});
+  // Precargar incumplimientos para que estén listos cuando el usuario los abra
+  loadIncumplData().catch(function(){});
   renderHome();
   if (currentView === 'cruce' && mapData.length) renderCruceView();
 }
@@ -2193,7 +2193,7 @@ async function parseCSVFile(file) {
 // ══════════════════════════════════════════
 async function handleFiles(files) {
   if (!files || !files.length) return;
-  const EXTS = ['.docx','.xlsx','.xlt','.csv','.kml','.kmz','.shp'];
+  const EXTS = ['.docx','.xlsx','.csv','.kml','.kmz','.shp'];
   const arr = Array.from(files).filter(f =>
     EXTS.some(ext => f.name.toLowerCase().endsWith(ext))
   );
@@ -2209,7 +2209,7 @@ async function handleFiles(files) {
   for (const file of arr) {
     const fname = file.name.toLowerCase();
     const isCSV  = fname.endsWith('.csv');
-    const isIncumplXlsx = (fname.endsWith('.xlsx') || fname.endsWith('.xlt')) && (fname.includes('incumpl') || fname.includes('numeral') || fname.includes('quincenal'));
+    const isIncumplXlsx = fname.endsWith('.xlsx') && (fname.includes('incumpl') || fname.includes('numeral') || fname.includes('quincenal'));
 
     if (isIncumplXlsx) {
       document.getElementById('imp-msg').textContent = `Procesando incumplimientos: ${file.name}`;
@@ -2217,90 +2217,65 @@ async function handleFiles(files) {
       const reader = new FileReader();
       reader.onload = async function(e) {
         try {
-          const wb = XLSX.read(e.target.result, {type:'array', bookType: fname.endsWith('.xlt') ? 'xlt' : undefined});
+          const wb = XLSX.read(e.target.result, {type:'array'});
           const NUMERALES = ['3.4.2-01','3.4.2-03','3.4.2-08','3.4.3-03','3.4.3-05'];
           const MESES_MAP = {febrero:2,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12,enero:1,marzo:3};
           const nuevosInc = [];
-          // Parser universal: maneja hojas por mes Y hoja única con quincenas
-          const NUMERALES = ['3.4.2-01','3.4.2-03','3.4.2-08','3.4.3-03','3.4.3-05'];
-          const MESES_MAP = {febrero:2,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,octubre:10,noviembre:11,diciembre:12,enero:1,marzo:3};
-          const nuevosInc = [];
-
-          function pv(v){ var s=String(v===null||v===undefined?'':v).replace(/-\.?-/g,'').replace(/S\/Nov\.?/gi,'').trim(); var n=parseFloat(s); return isNaN(n)?0:Math.round(n); }
-
-          // Convertir fecha a YYYY-MM-DD
-          function parseFechaCell(v) {
-            if (!v && v !== 0) return null;
-            var s = String(v).trim();
-            // Formato MM/DD/YYYY o M/D/YYYY
-            var mMDY = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-            if (mMDY) return mMDY[3]+'-'+mMDY[1].padStart(2,'0')+'-'+mMDY[2].padStart(2,'0');
-            // Formato YYYY-MM-DD
-            var mYMD = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-            if (mYMD) return mYMD[1]+'-'+mYMD[2]+'-'+mYMD[3];
-            // Serial Excel — SheetJS con raw:false lo convierte automáticamente
-            // Si llegó como string numérico, intentar con XLSX.SSF
-            if (/^\d{4,6}(\.\d+)?$/.test(s)) {
-              try {
-                var serial = parseFloat(s);
-                // Convertir serial Excel a fecha
-                var d = new Date(Math.round((serial - 25569) * 86400 * 1000));
-                if (!isNaN(d.getTime()) && d.getFullYear() > 2000) {
-                  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-                }
-              } catch(e){}
-            }
-            return null;
-          }
-
           wb.SheetNames.forEach(function(shName) {
+            const mesNum = MESES_MAP[shName.toLowerCase()];
+            if (!mesNum) return;
             const ws = wb.Sheets[shName];
-            const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+            const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
             let quinc = '';
-            let numColStart = -1;
+            let numColStart = -1; // índice donde empiezan los numerales
             rows.forEach(function(row) {
               const rowStr = row.filter(Boolean).join(' ');
               // Detectar quincena
               if (/quincena/i.test(rowStr)) {
-                quinc = row.filter(Boolean).join(' ').trim().split('–')[0].split('-')[0].trim();
-                numColStart = -1;
+                quinc = row.filter(Boolean).join(' ').trim();
+                numColStart = -1; // resetear para esta quincena
                 return;
               }
-              // Detectar headers de numerales
+              // Detectar fila de headers — buscar "3.4.2"
               if (/3[.,]4[.,]2/i.test(rowStr)) {
                 numColStart = row.findIndex(function(c){ return c && /3[.,]4/i.test(String(c)); });
                 return;
               }
-              // Saltar TOTAL y Feriado
-              if (/^total$/i.test(String(row[1]||'').trim())) return;
-              if (/feriado/i.test(rowStr)) return;
               if (!quinc || numColStart < 0) return;
-
-              // Fecha — puede estar en col 0 o col 1
-              var fechaRaw = row[1] || row[0];
-              var fecha = parseFechaCell(fechaRaw);
+              // Fecha en col 3
+              const fechaRaw = row[3];
+              if (!fechaRaw) return;
+              let fecha = null;
+              const fs = String(fechaRaw).trim();
+              // "2026-02-02 00:00:00" o "2026-02-02"
+              const mFull = fs.match(/(\d{4})-(\d{2})-(\d{2})/);
+              if (mFull) {
+                fecha = mFull[1]+'-'+mFull[2]+'-'+mFull[3];
+              } else if (/^\d{1,2}$/.test(fs) && +fs>=1 && +fs<=31) {
+                fecha = '2026-'+String(mesNum).padStart(2,'0')+'-'+String(+fs).padStart(2,'0');
+              }
               if (!fecha) return;
-              if (fecha.slice(0,4) < '2020') return; // descartar fechas inválidas
-
-              var vals = [
+              // Extraer 5 valores numéricos desde numColStart
+              function pv(v){ var s=String(v||'').replace(/-\.-/g,'').replace(/S\/Nov\.?/gi,'').trim(); return isNaN(+s)||s===''?0:+s; }
+              const vals = [
                 pv(row[numColStart]),
                 pv(row[numColStart+1]),
                 pv(row[numColStart+2]),
                 pv(row[numColStart+3]),
                 pv(row[numColStart+4])
               ];
-              var total = vals.reduce(function(s,v){return s+v;},0);
-              var rec = {fecha:fecha, quincena:quinc, orden:String(row[2]||''), acta:String(row[3]||''), obs:String(row[row.length-1]||''), total:total};
+              const total = vals.reduce(function(s,v){return s+v;},0);
+              const rec = {fecha:fecha, quincena:quinc.split('–')[0].split('-')[0].trim(), orden:'', acta:'', obs:'', total:total};
               NUMERALES.forEach(function(n,i){ rec[n]=vals[i]||0; });
               nuevosInc.push(rec);
             });
           });
-
-          // Cargar INCUMPL_DATA existente si no está
+          // Cargar INCUMPL_DATA si no está
           if (!INCUMPL_DATA) {
             try { const _r = await fetch('incumplimientos.json'); if(_r.ok) INCUMPL_DATA=await _r.json(); } catch(_e){}
           }
           if (!INCUMPL_DATA) INCUMPL_DATA = [];
+          // Detectar duplicados y agregar
           const keySet = new Set(INCUMPL_DATA.map(function(r){return r.fecha+'_'+(r.quincena||'');}));
           const agreg = nuevosInc.filter(function(r){return !keySet.has(r.fecha+'_'+(r.quincena||''));});
           if (agreg.length) {
@@ -4708,26 +4683,11 @@ function dlPDF(secciones, filename) {
   </div>
 </div>
 
-</script>
-
 <script>
 var INCUMPL_DATA = null;
 var _incLoading = false;
 
 async function loadIncumplData() {
-  // Si ya tenemos datos pero incumplData está vacío, reconstruirlo
-  if (INCUMPL_DATA && Object.keys(incumplData).length === 0) {
-    incumplData = {};
-    INCUMPL_DATA.forEach(function(x) {
-      incumplData[x.fecha] = {
-        fecha: x.fecha, total: x.total||0, quincena: x.quincena||'',
-        rnh: x['3.4.2-08']||0, basurales: x['3.4.2-03']||0,
-        volcaderos: x['3.4.3-03']||0, faltaRecoleccion: x['3.4.3-05']||0,
-        barrido: x['3.4.2-01']||0, orden: x.orden||'', acta: x.acta||'',
-      };
-    });
-    return INCUMPL_DATA;
-  }
   if (INCUMPL_DATA) return INCUMPL_DATA;
   if (_incLoading) return null;
   _incLoading = true;
