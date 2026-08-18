@@ -1425,10 +1425,13 @@ function calcIncumplForPool(pool) {
 function calcIncumplForPeriod(year, month, day) {
   let total = 0;
   Object.values(incumplData).forEach(d => {
+    if (!d || !d.fecha) return;
     if (d.suspendida) return;
-    if (year  && !d.fecha.startsWith(year))            return;
-    if (month && d.fecha.slice(5,7) !== String(month).padStart(2,'0')) return;
-    if (day   && d.fecha.slice(8,10) !== String(day).padStart(2,'0'))  return;
+    var parts = d.fecha.split('-');
+    var dYear = parts[0], dMonth = parts[1], dDay = parts[2];
+    if (year  && dYear  !== String(year))                      return;
+    if (month && parseInt(dMonth) !== parseInt(month))         return;
+    if (day   && parseInt(dDay)   !== parseInt(day))           return;
     total += d.total || 0;
   });
   return total;
