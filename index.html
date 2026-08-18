@@ -474,8 +474,8 @@ async function restoreFromBackup(backup) {
     await st_set('incumpl', JSON.stringify(backup.incumplimientos));
   }
   orders.sort((a,b) => b.fecha.localeCompare(a.fecha));
-  // Precargar incumplimientos para que estén listos cuando el usuario los abra
-  loadIncumplData().catch(function(){});
+  // Precargar incumplimientos — esperar antes de renderizar
+  await loadIncumplData().catch(function(){});
   renderHome();
   if (currentView === 'cruce' && mapData.length) renderCruceView();
 }
