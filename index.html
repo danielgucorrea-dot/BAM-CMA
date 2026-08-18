@@ -489,6 +489,8 @@ async function loadAll() {
       INCUMPL_EMBEDDED.forEach(x=>{ incumplData[x.fecha]=x; });
     }
   } catch(e) { console.error('loadAll:', e); }
+  // Cargar incumplimientos antes de renderizar para que el contador funcione
+  try { await loadIncumplData(); } catch(_e) {}
   renderHome();
 }
 
