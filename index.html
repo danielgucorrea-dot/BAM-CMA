@@ -489,7 +489,21 @@ async function loadAll() {
       INCUMPL_EMBEDDED.forEach(x=>{ incumplData[x.fecha]=x; });
     }
   } catch(e) { console.error('loadAll:', e); }
-  try { await loadIncumplData(); } catch(_e) {}
+  try {
+    const _ri = await fetch('incumplimientos.json');
+    if (_ri.ok) {
+      const _inc = await _ri.json();
+      incumplData = {};
+      _inc.forEach(function(x) {
+        incumplData[x.fecha] = {
+          fecha: x.fecha, total: x.total||0, quincena: x.quincena||'',
+          rnh: x['3.4.2-08']||0, basurales: x['3.4.2-03']||0,
+          volcaderos: x['3.4.3-03']||0, faltaRecoleccion: x['3.4.3-05']||0,
+          barrido: x['3.4.2-01']||0
+        };
+      });
+    }
+  } catch(_e) {}
   renderHome();
 }
 
