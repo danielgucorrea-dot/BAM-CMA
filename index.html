@@ -1895,9 +1895,7 @@ function monthNav(dir) {
 }
 
 function normalizeAddr(ubic) {
-  let s = ubic.toLowerCase()
-    .replace(/[,;.]/g,' ')        // eliminar comas, puntos, puntos y coma
-    .replace(/\s+/g,' ').trim();
+  let s = ubic.toLowerCase().replace(/\s+/g,' ').trim();
 
   // Detect if it's an intersection (two streets)
   const isIntersection = / y | e | entre /.test(s);
