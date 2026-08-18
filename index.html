@@ -434,7 +434,8 @@ let currentKey = null;
 let currentFilter = 'TODOS';
 let currentView = 'analytics';
 let selectedYear  = null;  // '2024' | '2025' | '2026'
-let selectedMonth = null;  // '01'..'12'
+let selectedMonth  = null;  // '01'..'12'
+let selectedMonths = new Set(); // selección múltiple
 
 // ══════════════════════════════════════════
 // STORAGE
@@ -489,6 +490,7 @@ async function loadAll() {
       INCUMPL_EMBEDDED.forEach(x=>{ incumplData[x.fecha]=x; });
     }
   } catch(e) { console.error('loadAll:', e); }
+  try { await loadIncumplData(); } catch(_e) {}
   renderHome();
 }
 
@@ -1509,17 +1511,27 @@ function selectYear(y) {
   }, 0);
 }
 
+
+// Helper: filtrar pool por meses seleccionados
+function filterByMonths(arr, fechaFn) {
+  if (!selectedMonths.size) return arr;
+  return arr.filter(o => selectedMonths.has((fechaFn ? fechaFn(o) : o.fecha).slice(5,7)));
+}
+
 function updateHomeHeader() {
   const MNAMES = {null:'Todos los años','undefined':'Todos los años','2024':'2024','2025':'2025','2026':'2026'};
   let pool = orders;
   if (selectedYear) pool = pool.filter(o=>o.fecha.startsWith(selectedYear));
-  if (selectedMonth) pool = pool.filter(o=>o.fecha.slice(5,7)===selectedMonth);
+  pool = filterByMonths(pool, null);
   const total = pool.reduce((s,o)=>s+o.items.length,0);
   const incumpl = calcIncumplForPeriod(selectedYear?parseInt(selectedYear):null,
     selectedMonth?parseInt(selectedMonth):null, null);
-  const label = selectedMonth
-    ? `${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(selectedMonth)-1]} ${selectedYear}`
-    : selectedYear ? selectedYear : 'Todos los períodos';
+  const MNAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const label = selectedMonths.size > 1
+    ? [...selectedMonths].sort().map(m=>MNAMES[parseInt(m)-1]).join(', ') + (selectedYear ? ` ${selectedYear}` : '')
+    : selectedMonth && selectedMonth !== 'multi'
+      ? `${MNAMES[parseInt(selectedMonth)-1]} ${selectedYear||''}`
+      : selectedYear ? selectedYear : 'Todos los períodos';
   document.getElementById('h-sub').textContent =
     pool.length ? `${label} · ${pool.length} órdenes · ${total.toLocaleString()} pedidos` : 'Sin órdenes en este período';
   // Update stats
@@ -1557,7 +1569,16 @@ function renderMonthBoxes() {
 
 function selectMonth(m) {
   const mp = m ? String(m).padStart(2,'0') : null;
-  selectedMonth = selectedMonth === mp ? null : mp;
+  if (!mp) {
+    selectedMonths.clear();
+    selectedMonth = null;
+  } else if (selectedMonths.has(mp)) {
+    selectedMonths.delete(mp);
+    selectedMonth = selectedMonths.size === 1 ? [...selectedMonths][0] : (selectedMonths.size > 1 ? 'multi' : null);
+  } else {
+    selectedMonths.add(mp);
+    selectedMonth = selectedMonths.size === 1 ? [...selectedMonths][0] : 'multi';
+  }
   selectedDay = null;
   _renderVersion++;
   showLoadingState();
@@ -1591,7 +1612,7 @@ function renderOrderList() {
   // Filtrar órdenes según selección
   let pool = orders;
   if (selectedYear)  pool = pool.filter(o => o.fecha.startsWith(selectedYear));
-  if (selectedMonth) pool = pool.filter(o => o.fecha.slice(5,7) === selectedMonth);
+  pool = filterByMonths(pool, null);
   if (selectedDay)   pool = pool.filter(o => o.fecha === selectedDay);
 
   const search = (document.getElementById('h-search')?.value||'').toLowerCase().trim();
@@ -1624,7 +1645,7 @@ function renderOrderList() {
   // Stats del período
   const totalItems = pool.reduce((s,o)=>s+o.items.length,0);
   // Incumplimientos del período completo (incluye días sin orden subida)
-  const totalIncumpl = calcIncumplForPeriod(selectedYear, selectedMonth, null);
+  const totalIncumpl = selectedMonths.size > 1 ? [...selectedMonths].reduce((s,m)=>s+calcIncumplForPeriod(selectedYear,m,null),0) : calcIncumplForPeriod(selectedYear, selectedMonth, null);
   const cumplPct = calcCumplPct(totalItems, totalIncumpl);
   const hasIncumpl = Object.keys(incumplData).length > 0;
 
@@ -1750,7 +1771,7 @@ function renderOrderListFull() {
   const pool = (() => {
     let p = orders;
     if (selectedYear)  p = p.filter(o => o.fecha.startsWith(selectedYear));
-    if (selectedMonth) p = p.filter(o => o.fecha.slice(5,7) === selectedMonth);
+    p = filterByMonths(p, null);
     if (selectedDay)   p = p.filter(o => o.fecha === selectedDay);
     return p;
   })();
