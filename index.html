@@ -4688,6 +4688,19 @@ var INCUMPL_DATA = null;
 var _incLoading = false;
 
 async function loadIncumplData() {
+  // Si ya tenemos datos pero incumplData está vacío, reconstruirlo
+  if (INCUMPL_DATA && Object.keys(incumplData).length === 0) {
+    incumplData = {};
+    INCUMPL_DATA.forEach(function(x) {
+      incumplData[x.fecha] = {
+        fecha: x.fecha, total: x.total||0, quincena: x.quincena||'',
+        rnh: x['3.4.2-08']||0, basurales: x['3.4.2-03']||0,
+        volcaderos: x['3.4.3-03']||0, faltaRecoleccion: x['3.4.3-05']||0,
+        barrido: x['3.4.2-01']||0, orden: x.orden||'', acta: x.acta||'',
+      };
+    });
+    return INCUMPL_DATA;
+  }
   if (INCUMPL_DATA) return INCUMPL_DATA;
   if (_incLoading) return null;
   _incLoading = true;
