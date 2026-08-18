@@ -434,7 +434,8 @@ let currentKey = null;
 let currentFilter = 'TODOS';
 let currentView = 'analytics';
 let selectedYear  = null;  // '2024' | '2025' | '2026'
-let selectedMonth = null;  // '01'..'12'
+let selectedMonth  = null;  // '01'..'12'
+let selectedMonths = new Set();
 
 // ══════════════════════════════════════════
 // STORAGE
@@ -1528,13 +1529,16 @@ function updateHomeHeader() {
   const MNAMES = {null:'Todos los años','undefined':'Todos los años','2024':'2024','2025':'2025','2026':'2026'};
   let pool = orders;
   if (selectedYear) pool = pool.filter(o=>o.fecha.startsWith(selectedYear));
-  if (selectedMonth) pool = pool.filter(o=>o.fecha.slice(5,7)===selectedMonth);
+  if (selectedMonths.size) pool = pool.filter(o=>selectedMonths.has(o.fecha.slice(5,7)));
   const total = pool.reduce((s,o)=>s+o.items.length,0);
   const incumpl = calcIncumplForPeriod(selectedYear?parseInt(selectedYear):null,
     selectedMonth?parseInt(selectedMonth):null, null);
-  const label = selectedMonth
-    ? `${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(selectedMonth)-1]} ${selectedYear}`
-    : selectedYear ? selectedYear : 'Todos los períodos';
+  const _MN = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const label = selectedMonths.size > 1
+    ? [...selectedMonths].sort().map(m=>_MN[parseInt(m)-1]).join('+')+(selectedYear?' '+selectedYear:'')
+    : selectedMonth && selectedMonth!=='multi'
+      ? _MN[parseInt(selectedMonth)-1]+' '+(selectedYear||'')
+      : selectedYear||'Todos los períodos';
   document.getElementById('h-sub').textContent =
     pool.length ? `${label} · ${pool.length} órdenes · ${total.toLocaleString()} pedidos` : 'Sin órdenes en este período';
   // Update stats
@@ -1572,7 +1576,9 @@ function renderMonthBoxes() {
 
 function selectMonth(m) {
   const mp = m ? String(m).padStart(2,'0') : null;
-  selectedMonth = selectedMonth === mp ? null : mp;
+  if (!mp) { selectedMonths.clear(); selectedMonth = null; }
+  else if (selectedMonths.has(mp)) { selectedMonths.delete(mp); selectedMonth = selectedMonths.size===1?[...selectedMonths][0]:selectedMonths.size>1?'multi':null; }
+  else { selectedMonths.add(mp); selectedMonth = selectedMonths.size===1?[...selectedMonths][0]:'multi'; }
   selectedDay = null;
   _renderVersion++;
   showLoadingState();
@@ -1606,7 +1612,7 @@ function renderOrderList() {
   // Filtrar órdenes según selección
   let pool = orders;
   if (selectedYear)  pool = pool.filter(o => o.fecha.startsWith(selectedYear));
-  if (selectedMonth) pool = pool.filter(o => o.fecha.slice(5,7) === selectedMonth);
+  if (selectedMonths.size) pool = pool.filter(o=>selectedMonths.has(o.fecha.slice(5,7)));
   if (selectedDay)   pool = pool.filter(o => o.fecha === selectedDay);
 
   const search = (document.getElementById('h-search')?.value||'').toLowerCase().trim();
@@ -1765,7 +1771,7 @@ function renderOrderListFull() {
   const pool = (() => {
     let p = orders;
     if (selectedYear)  p = p.filter(o => o.fecha.startsWith(selectedYear));
-    if (selectedMonth) p = p.filter(o => o.fecha.slice(5,7) === selectedMonth);
+    if (selectedMonths.size) p = p.filter(o=>selectedMonths.has(o.fecha.slice(5,7)));
     if (selectedDay)   p = p.filter(o => o.fecha === selectedDay);
     return p;
   })();
@@ -4242,7 +4248,7 @@ var DL_SECCIONES = {
   fiscalizacion: { label:'⚖️ Actas de infracción',    icon:'⚖️' },
 };
 
-function dlOpen(vista) {
+window.dlOpen = function dlOpen(vista) {
   _dlVista = vista;
   _dlFmt   = 'csv';
   // Resetear formato
