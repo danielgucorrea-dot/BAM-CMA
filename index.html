@@ -268,7 +268,7 @@ button{cursor:pointer;font-family:inherit}
       <div style="font-size:12px;color:#1A2E1A">.docx Órdenes · .xlsx/.csv Actas e Incumplimientos · .kml/.kmz Mapas</div>
       <div style="font-size:11px;color:#1A2E1A;margin-top:4px">El sistema detecta el tipo automáticamente por la extensión</div>
     </div>
-    <input type="file" id="f-input" multiple accept=".docx,.xlsx,.csv,.kml,.kmz,.shp" class="hidden" onchange="handleFiles(this.files)">
+    <input type="file" id="f-input" multiple accept=".docx,.xlsx,.xlt,.csv,.kml,.kmz,.shp" class="hidden" onchange="handleFiles(this.files)">
 
     <div id="imp-prog-wrap" class="hidden" style="margin-top:16px">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">
@@ -2193,7 +2193,7 @@ async function parseCSVFile(file) {
 // ══════════════════════════════════════════
 async function handleFiles(files) {
   if (!files || !files.length) return;
-  const EXTS = ['.docx','.xlsx','.csv','.kml','.kmz','.shp'];
+  const EXTS = ['.docx','.xlsx','.xlt','.csv','.kml','.kmz','.shp'];
   const arr = Array.from(files).filter(f =>
     EXTS.some(ext => f.name.toLowerCase().endsWith(ext))
   );
@@ -2209,7 +2209,7 @@ async function handleFiles(files) {
   for (const file of arr) {
     const fname = file.name.toLowerCase();
     const isCSV  = fname.endsWith('.csv');
-    const isIncumplXlsx = fname.endsWith('.xlsx') && (fname.includes('incumpl') || fname.includes('numeral') || fname.includes('quincenal'));
+    const isIncumplXlsx = (fname.endsWith('.xlsx') || fname.endsWith('.xlt')) && (fname.includes('incumpl') || fname.includes('numeral') || fname.includes('quincenal'));
 
     if (isIncumplXlsx) {
       document.getElementById('imp-msg').textContent = `Procesando incumplimientos: ${file.name}`;
