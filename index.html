@@ -2009,14 +2009,14 @@ function renderAnalytics() {
   });
   const top5 = Object.entries(addrCount)
     .sort((a,b) => b[1]-a[1])
-    .slice(0, 5);
+    .slice(0, 10);
 
-  html += `<div style="font-size:10px;color:#4A6A4A;font-family:'Poppins',sans-serif;letter-spacing:.1em;margin:18px 0 10px">TOP 5 UBICACIONES DEL MES</div>`;
+  html += `<div style="font-size:10px;color:#4A6A4A;font-family:'Poppins',sans-serif;letter-spacing:.1em;margin:18px 0 10px">TOP 10 UBICACIONES DEL MES</div>`;
   if (top5.length === 0) {
     html += `<div style="font-size:12px;color:#1A2E1A;padding:8px 0">Sin repeticiones detectadas este mes</div>`;
   } else {
     const maxAddr = top5[0][1];
-    const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+    const medals = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
     top5.forEach(([addr, c], idx) => {
       const w = Math.round(c/maxAddr*100);
       const display = addr.replace(/\b\w/g, l => l.toUpperCase());
