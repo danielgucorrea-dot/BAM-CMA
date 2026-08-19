@@ -4665,7 +4665,7 @@ function dlPDF(secciones, filename) {
   _pdf.innerHTML=html_content;
   _pdf.style.cssText='position:fixed;top:-9999px;left:0;width:800px;background:#fff';
   document.body.appendChild(_pdf);
-  html2pdf().from(_pdf).set({margin:[8,8,8,8],filename:fname+'.pdf',image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).save().then(function(){document.body.removeChild(_pdf);document.getElementById('dl-execute').disabled=false;});
+  html2pdf().from(_pdf).set({margin:[8,8,8,8],filename:filename+'.pdf',image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).save().then(function(){document.body.removeChild(_pdf);document.getElementById('dl-execute').disabled=false;});
 }
 
 </script>
