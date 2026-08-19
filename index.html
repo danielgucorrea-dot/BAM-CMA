@@ -4659,7 +4659,16 @@ function dlPDF(secciones, filename) {
     +'<div style="font-size:36px">🌿</div></div>'
     +bloques
     +'<div style="margin-top:16px;font-size:9px;color:#888;border-top:1px solid #ddd;padding-top:6px">Dashboard Ambiental SMT · '+fechaGen+'</div>'
-    +'
+    +'<\/body><\/html>';
+
+  var _pdf=document.createElement('div');
+  _pdf.innerHTML=html_content;
+  _pdf.style.cssText='position:fixed;top:-9999px;left:0;width:800px;background:#fff';
+  document.body.appendChild(_pdf);
+  html2pdf().from(_pdf).set({margin:[8,8,8,8],filename:fname+'.pdf',image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).save().then(function(){document.body.removeChild(_pdf);document.getElementById('dl-execute').disabled=false;});
+}
+
+</script>
 <!-- ══ INCUMPLIMIENTOS VIEW ══ -->
 <div id="v-incumpl" class="hidden">
   <div class="hdr" style="position:relative">
@@ -4704,7 +4713,7 @@ function dlPDF(secciones, filename) {
   </div>
 </div>
 
-</script>
+
 
 <script>
 var INCUMPL_DATA = null;
@@ -4852,18 +4861,6 @@ function incRender() {
     }).join('')
     +(sinInc.length?'<div style="text-align:center;padding:8px;font-size:10px;color:#4A6A4A">✅ '+sinInc.length+' días sin incumplimientos</div>':'');
   }
-}
-<\/script>
-
-<\/body><\/html>';
-
-  var opt = {
-    margin:[8,8,8,8], filename:filename+'.pdf',
-    image:{type:'jpeg',quality:0.95},
-    html2canvas:{scale:2, useCORS:true, logging:false, allowTaint:true},
-    jsPDF:{unit:'mm', format:'a4', orientation:'portrait'}
-  };
-  html2pdf().set(opt).from(html_content).save();
 }
 
 // ── Trigger descarga ──────────────────────
