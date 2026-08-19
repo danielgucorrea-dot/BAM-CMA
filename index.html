@@ -4661,11 +4661,15 @@ function dlPDF(secciones, filename) {
     +'<div style="margin-top:16px;font-size:9px;color:#888;border-top:1px solid #ddd;padding-top:6px">Dashboard Ambiental SMT · '+fechaGen+'</div>'
     +'<\/body><\/html>';
 
-  var _pdf=document.createElement('div');
-  _pdf.innerHTML=html_content;
-  _pdf.style.cssText='position:fixed;top:-9999px;left:0;width:800px;background:#fff';
-  document.body.appendChild(_pdf);
-  html2pdf().from(_pdf).set({margin:[8,8,8,8],filename:filename+'.pdf',image:{type:'jpeg',quality:0.95},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).save().then(function(){document.body.removeChild(_pdf);document.getElementById('dl-execute').disabled=false;});
+  html2pdf().from(html_content).set({
+    margin:[8,8,8,8],
+    filename:filename+'.pdf',
+    image:{type:'jpeg',quality:0.95},
+    html2canvas:{scale:2,useCORS:true,allowTaint:true},
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+  }).save().then(function(){
+    document.getElementById('dl-execute').disabled=false;
+  });
 }
 
 </script>
